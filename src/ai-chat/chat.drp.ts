@@ -36,7 +36,6 @@ export class ChatDRP implements IDRP {
   newMessage(message: Message): string {
     message.messageId = computeHash(message);
     if (message.messageId in this.messageById) {
-      console.log(message);
       throw new Error('Message already exists');
     }
 

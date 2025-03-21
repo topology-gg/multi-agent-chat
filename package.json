@@ -14,7 +14,7 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
     "@testing-library/user-event": "^13.5.0",
-    "@ts-drp/network": "link:../../ts-drp/packages/network",
+    "@ts-drp/network": "^0.10.0",
     "@ts-drp/node": "^0.10.0",
     "@ts-drp/object": "^0.10.0",
     "@ts-drp/types": "^0.10.0",

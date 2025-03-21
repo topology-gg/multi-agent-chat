@@ -7,8 +7,7 @@ import ChatWindow from './components/ChatWindow';
 import { DRPNode } from '@ts-drp/node';
 import { DRPObject } from '@ts-drp/object';
 import { ChatOpenAI, ChatOpenAICallOptions, OpenAI } from '@langchain/openai';
-import { DRPManager, readDRPChatTool } from './ai-chat/tools';
-import { writeDRPChatTool } from './ai-chat/tools';
+import { answerDRPChatTool, askDRPChatTool, DRPManager, readDRPChatTool } from './ai-chat/tools';
 import { Runnable, RunnableConfig } from '@langchain/core/runnables';
 import { BaseLanguageModelInput } from '@langchain/core/language_models/base';
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
@@ -56,7 +55,7 @@ function App() {
       await drpManager.start();
       setDrpManager(drpManager);
 
-      const tools = [writeDRPChatTool(drpManager), readDRPChatTool(drpManager)];
+      const tools = [askDRPChatTool(drpManager), answerDRPChatTool(drpManager), readDRPChatTool(drpManager)];
       const llm = new ChatOpenAI({
         model: 'gpt-4o-mini',
         temperature: 0,

@@ -2,10 +2,8 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Box, Paper, TextField, IconButton } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import ChatMessage from './ChatMessage';
-import { DRPObject } from '@ts-drp/object';
 import { ChatDRP } from '../ai-chat/chat.drp';
-import { DRPNode } from '@ts-drp/node';
-import { DRPManager, readDRPChatTool, writeDRPChatTool } from '../ai-chat/tools';
+import { DRPManager, readDRPChatTool, answerDRPChatTool, askDRPChatTool } from '../ai-chat/tools';
 import { Runnable, RunnableConfig } from '@langchain/core/runnables'; 
 import { BaseLanguageModelInput } from '@langchain/core/language_models/base';
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
@@ -47,6 +45,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
   };
 
   useEffect(() => {
+    const interval = setInterval(() => {
+      console.log((drpManager.node.objectStore.get('chat')?.drp as ChatDRP).messageById);
+    }, 1000);
+
+    // Cleanup function để tránh memory leak
+    return () => clearInterval(interval);
+  }, [drpManager]);
+
+  useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
@@ -79,14 +86,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
       const response = await llm?.invoke(state.messages);
       return { messages: [response] };
     };
-    const tools = [writeDRPChatTool(drpManager), readDRPChatTool(drpManager)];
+    const tools = [askDRPChatTool(drpManager), answerDRPChatTool(drpManager), readDRPChatTool(drpManager)];
     const toolNode = new ToolNode(tools);
     const originalInvoke = toolNode.invoke.bind(toolNode);
     toolNode.invoke = async (input: any, config: RunnableConfig) => {
       try {
         const result = await originalInvoke(input, config);
         const func = result.messages[0].name;
-        if (func === 'writeDRPChatTool') {
+        if (func === 'askDRPChatTool') {
           const parsedResult = JSON.parse(result.messages[0].content);
           const content = parsedResult.content;
           // Cập nhật agentConversation của tin nhắn cuối cùng từ người dùng

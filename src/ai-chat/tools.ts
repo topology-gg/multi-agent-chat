@@ -151,15 +151,39 @@ function composeContentAnswerer(content: string): string {
   return `Hi, i will answer your question. My answer to your question is ${content}.`;
 }
 
-const writeDRPChatSchema = z.object({
+
+
+const askDRPChatSchema = z.object({
+  content: z.string().describe('Content to send to chat drp tool'),
+  targetPeerId: z
+    .string()
+    .describe('Tag peerId of the agent you want to ask'),
+});
+
+export const askDRPChatTool = (
+  drpManager: DRPManager,
+): StructuredToolInterface =>
+  new DynamicStructuredTool({
+    name: 'askDRPChatTool',
+    description: 'A tool for asking a question to a specific agent',
+    schema: askDRPChatSchema,
+    func: async ({ content, targetPeerId }: { content: string; targetPeerId: string }) => {
+      await drpManager.start();
+      content = composeContentQuestioner(content);
+      const newMessageId = await drpManager.sendMessage(content, false, targetPeerId);
+      return {
+        messageId: newMessageId,
+        content: content,
+      };
+  }});
+
+const answerDRPChatSchema = z.object({
   content: z.string().describe('Content to send to chat drp tool'),
   parentMessageId: z
     .string()
-    .optional()
     .describe(
-      'Id of the parent message. If not provided, it will start a new conversation',
+      'Id of the parent message. Do not provider this when you want to start a new conversation',
     ),
-  end: z.boolean().describe('End of the conversation'),
   targetPeerId: z
     .string()
     .describe(
@@ -167,45 +191,20 @@ const writeDRPChatSchema = z.object({
     ),
 });
 
-export const writeDRPChatTool = (
+export const answerDRPChatTool = (
   drpManager: DRPManager,
 ): StructuredToolInterface =>
   new DynamicStructuredTool({
-    name: 'writeDRPChatTool',
-    description: 'A tool for sending your messages to network',
-    schema: writeDRPChatSchema,
-    func: async ({
-      content,
-      parentMessageId,
-      end,
-      targetPeerId,
-    }: {
-      content: string;
-      parentMessageId?: string;
-      end: boolean;
-      targetPeerId: string;
-    }) => {
+    name: 'answerDRPChatTool',
+    description: 'A tool for answering a question to a specific agent',
+    schema: answerDRPChatSchema,
+    func: async ({ content, parentMessageId, targetPeerId }: { content: string; parentMessageId: string; targetPeerId: string }) => {
       await drpManager.start();
-      const sendContent =
-        parentMessageId == null
-          ? composeContentQuestioner(content)
-          : composeContentAnswerer(content);
-      const newMessageId = await drpManager.sendMessage(
-        sendContent,
-        end,
-        targetPeerId,
-        parentMessageId,
-      );
-
-      if (newMessageId === '') {
-        return {
-          messageId: 'Failed to send message to remote agent because message already exists'
-        };
-      }
+      content = composeContentAnswerer(content);
+      const newMessageId = await drpManager.sendMessage(content, true, targetPeerId, parentMessageId);
       return {
         messageId: newMessageId,
-        content: sendContent,
-        message: `Successfully sent message with ID ${newMessageId} to remote agent. Now you can use readDRPChatTool to get the answer.`,
+        content: content,
       };
     },
   });
@@ -231,7 +230,6 @@ export const readDRPChatTool = (
       if (messageId != null) {
         await drpManager.waitMinimalGrafting();
         const message = drpManager.chat.query_answer(messageId);
-        console.log(drpManager.chat.messagesByPeerId);
         if (message == null || message.content === '') {
           return 'No answer found, please retry later';
         }
@@ -242,7 +240,6 @@ export const readDRPChatTool = (
         await drpManager.waitMinimalGrafting();
         const unresponedConversations =
           drpManager.chat.query_unresponded_conversations(drpManager.peerID);
-        console.log(unresponedConversations);
         let result = 'Unresponded conversations:\n\n';
         for (const conversation of unresponedConversations) {
           result += composeState(conversation, drpManager) + '\n\n';

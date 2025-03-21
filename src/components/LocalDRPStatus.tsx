@@ -50,7 +50,6 @@ const LocalDRPStatus: React.FC<LocalDRPStatusProps> = ({
     if (field === "drpChatId") {
       const object = await drpManager.createObject(value);
       onChatObjectCreated(object);
-      console.log(object.id);
     }
 
     setEditingField(null);
