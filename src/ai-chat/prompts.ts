@@ -18,19 +18,18 @@ export const startConversationPrompt = `
 
     # Instructions
     - If you can answer the question, you can directly answer the question.
-    - If user ask you to ask other agents, you can use writeDRPChatTool to send the question to the network. The tool will return the messageId of the question message.
-    - After asking, try to query the answer from readDRPChatTool until you get the answer. Use the messageId of the message you asked.
+    - If user ask you to ask other agents, you can use askDRPChatTool to send the question to the network. The tool will return the messageId of the question message.
+    - After asking, try to query the answer from queryAnswerDRPChatTool until you get the answer. Use the messageId of the message you asked.
     - Only broadcast one question at a time. Wait for the answer before asking another question. 
     - Avoid duplicate questions.
+    - Retry getting answer 5 times until you get the answer.
 
     # Arguments
     - content: The question you want to ask.
-    - parentMessageId: The messageId of the parent message. Because it starts new conversation, there is no parentMessageId, skip it, don't pass it when calling the tool.
-    - end: Whether the conversation is over. Because it starts new conversation, end is false.
     - targetPeerId: The peerId of the agent you want to send the message to. Use Everyone to send the message to all agents. And use specific agent peer id you want to send the message to that agent.
     
     # Example
-    - You received a question: "Ask other agents, what is the capital of France?" - Use writeDRPChatTool to send the question to the network. Use content as the question and targetPeerId as Everyone. The tool will return the messageId of the question message.
-    -> After that, use readDRPChatTool to get the answer. Use messageId of the question message to get the answer.
+    - You received a question: "Ask other agents, what is the capital of France?" - Use askDRPChatTool to send the question to the network. Use content as the question and targetPeerId as Everyone. The tool will return the messageId of the question message.
+    -> After that, use queryAnswerDRPChatTool to get the answer. Use messageId of the question message to get the answer.
     - You received the question: "Write me a simple Python code snippet?". You can directly answer the question.
 `;

@@ -20,9 +20,7 @@ export class DRPManager {
   private readonly logConfig: LoggerOptions = {
     // level: 'silent',
   };
-  private readonly keychainConfig: KeychainOptions = {
-    private_key_seed: process.env.KEY_SEED,
-  };
+  private readonly keychainConfig: KeychainOptions = {};
   private readonly networkConfig: DRPNetworkNodeConfig = {
     listen_addresses: ['/p2p-circuit', '/webrtc'],
     bootstrap_peers: [
@@ -34,7 +32,7 @@ export class DRPManager {
   started = false;
   private _object: DRPObject | undefined;
 
-  constructor(keySeed: string) {
+  constructor(keySeed?: string) {
     this.keychainConfig.private_key_seed = keySeed;
     this._node = new DRPNode({
       keychain_config: this.keychainConfig,
@@ -174,6 +172,7 @@ export const askDRPChatTool = (
       return {
         messageId: newMessageId,
         content: content,
+        message: "You asked a question to the agent. You can use queryAnswerDRPChatTool to get the answer.",
       };
   }});
 
@@ -209,45 +208,54 @@ export const answerDRPChatTool = (
     },
   });
 
-const readDRPChatSchema = z.object({
+const queryAnswerDRPChatSchema = z.object({
   messageId: z
     .string()
     .describe(
       'Id of the message that need answered. If not provided, return all unresponded conversations',
     )
-    .optional(),
 });
 
-export const readDRPChatTool = (
+export const queryAnswerDRPChatTool = (
   drpManager: DRPManager,
 ): StructuredToolInterface =>
   new DynamicStructuredTool({
-    name: 'readDRPChatTool',
-    description: 'A tool for read messages from network',
-    schema: readDRPChatSchema,
-    func: async ({ messageId }: { messageId?: string }) => {
+    name: 'queryAnswerDRPChatTool',
+    description: 'A tool for querying an answer from a specific agent',
+    schema: queryAnswerDRPChatSchema,
+    func: async ({ messageId }: { messageId: string }) => {
       await drpManager.start();
-      if (messageId != null) {
-        await drpManager.waitMinimalGrafting();
-        const message = drpManager.chat.query_answer(messageId);
-        if (message == null || message.content === '') {
-          return 'No answer found, please retry later';
+      const message = drpManager.chat.query_answer(messageId);
+      if (message == null || message.content === '') {
+        return {
+          content: '',
+          message: 'No answer found, please retry later',
         }
-        const answer =
-          'You received an answer from remote agent: ' + message.content;
-        return answer;
-      } else {
-        await drpManager.waitMinimalGrafting();
-        const unresponedConversations =
-          drpManager.chat.query_unresponded_conversations(drpManager.peerID);
-        let result = 'Unresponded conversations:\n\n';
-        for (const conversation of unresponedConversations) {
-          result += composeState(conversation, drpManager) + '\n\n';
-          console.log(
-            `Found question "${conversation[0].content}" with id "${conversation[0].messageId}" from peerId "${conversation[0].peerId}"\n`,
-          );
-        }
-        return result;
       }
+      return {
+        content: message.content,
+        message: `You received an answer from remote agent: ${message.content}`,
+      };
+    },
+  });
+
+export const queryConversationDRPChatTool = (
+  drpManager: DRPManager,
+): StructuredToolInterface =>
+  new DynamicStructuredTool({
+    name: 'queryConversationDRPChatTool',
+    description: 'A tool for querying a conversation from a specific agent',
+    schema: {},
+    func: async () => {
+      await drpManager.start();
+      const conversations = drpManager.chat.query_conversations(drpManager.peerID);
+      let result = 'Unresponded conversations:\n\n';
+      for (const conversation of conversations) {
+        result += composeState(conversation, drpManager) + '\n\n';
+        console.log(
+          `Found question "${conversation[0].content}" with id "${conversation[0].messageId}" from peerId "${conversation[0].peerId}"\n`,
+        );
+      }
+      return result;
     },
   });

@@ -3,7 +3,7 @@ import { Box, Paper, TextField, IconButton } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import ChatMessage from './ChatMessage';
 import { ChatDRP } from '../ai-chat/chat.drp';
-import { DRPManager, readDRPChatTool, answerDRPChatTool, askDRPChatTool } from '../ai-chat/tools';
+import { DRPManager, queryAnswerDRPChatTool, queryConversationDRPChatTool, answerDRPChatTool, askDRPChatTool } from '../ai-chat/tools';
 import { Runnable, RunnableConfig } from '@langchain/core/runnables'; 
 import { BaseLanguageModelInput } from '@langchain/core/language_models/base';
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
@@ -18,6 +18,7 @@ import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { v4 as uuidv4 } from 'uuid';
 import { answerQuestionPrompt, startConversationPrompt } from '../ai-chat/prompts';
 import { ChatOpenAICallOptions } from '@langchain/openai';
+import { IDRPObject } from '@ts-drp/types';
 
 interface ChatMessage {
   type: 'human' | 'agent';
@@ -40,22 +41,40 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const clearMessages = () => {
+    setMessages([]);
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // clear messages each time drpManader.DRPObject is changed
   useEffect(() => {
-    const interval = setInterval(() => {
-      console.log((drpManager.node.objectStore.get('chat')?.drp as ChatDRP).messageById);
-    }, 1000);
+    clearMessages();
+  }, [drpManager.object]);
 
-    // Cleanup function để tránh memory leak
-    return () => clearInterval(interval);
-  }, [drpManager]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Thêm useEffect cho chức năng tự động
+  useEffect(() => {
+    const processAutonomousMessage = async () => {
+      await handleMessage(""); 
+    }
+
+    drpManager.node.objectStore.subscribe(drpManager.object.id, (objectId: string, object: IDRPObject) => {
+      console.log(object);
+    });
+
+    // Chạy hàm xử lý mỗi 1 giây
+    const interval = setInterval(processAutonomousMessage, 1000);
+
+    // Cleanup function
+    return () => clearInterval(interval);
+  }, [drpManager]);
 
   const handleMessage = async (message: string) => {
     if (!drpManager || !llm) {
@@ -86,7 +105,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
       const response = await llm?.invoke(state.messages);
       return { messages: [response] };
     };
-    const tools = [askDRPChatTool(drpManager), answerDRPChatTool(drpManager), readDRPChatTool(drpManager)];
+    const tools = [askDRPChatTool(drpManager), answerDRPChatTool(drpManager), queryAnswerDRPChatTool(drpManager), queryConversationDRPChatTool(drpManager)];
     const toolNode = new ToolNode(tools);
     const originalInvoke = toolNode.invoke.bind(toolNode);
     toolNode.invoke = async (input: any, config: RunnableConfig) => {
@@ -114,11 +133,32 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
             }
             return newMessages;
           });
-        } else {
+        } else if (func === 'queryAnswerDRPChatTool') {
+          console.log(result.messages[0].content);
+          const parsedResult = JSON.parse(result.messages[0].content);
+          const content = parsedResult.content;
+          setMessages(prev => {
+            const newMessages = [...prev];
+            for (let i = newMessages.length - 1; i >= 0; i--) {
+              if (newMessages[i].type === 'human') {
+                const currentAgentConversation = newMessages[i].agentConversation;
+                newMessages[i] = {
+                  ...newMessages[i],
+                  agentConversation: {
+                    localMessage: currentAgentConversation?.localMessage || '',
+                    remoteResponse: content,
+                    timestamp: Date.now()
+                  }
+                };
+                break;
+              }
+            } 
+            return newMessages;
+          });
         }
         return result;
       } catch (error) {
-        console.error('Error invoking tool:', error);
+        console.error(error);
       }
     }
     const workflow = new StateGraph(MessagesAnnotation)
@@ -188,7 +228,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
     } else {
       const agentMessage: ChatMessage = {
         type: 'agent',
-        message: output
+        message: output.toString()
       };
       setMessages(prev => [...prev, agentMessage]);
       setIsProcessing(false);

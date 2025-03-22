@@ -36,6 +36,31 @@ const LocalDRPStatus: React.FC<LocalDRPStatusProps> = ({
   // Create a Set of bootstrap peer IDs for efficient lookup
   const bootstrapPeerIds = new Set(bootstrapPeers.map(peer => peer.id));
 
+  const extractPeerIdFromMultiaddr = (multiaddr: string): string => {
+    // Lấy phần cuối cùng sau "/p2p/"
+    const parts = multiaddr.split('/p2p/');
+    return parts[parts.length - 1];
+  };
+
+  useEffect(() => {
+    const updatePeers = async () => {
+      const peers = drpManager.networkNode.getAllPeers();
+      const bootstrapPeers = drpManager.networkNode.getBootstrapNodes();
+      const connectedPeers = peers.filter(peer => !bootstrapPeers.includes(peer));
+      
+      setConnectedPeers(connectedPeers.map(peer => ({ id: peer })));
+      
+      // Trích xuất peer ID từ multiaddress của bootstrap peers
+      const formattedBootstrapPeers = bootstrapPeers.map(multiaddr => ({
+        id: extractPeerIdFromMultiaddr(multiaddr)
+      }));
+      setBootstrapPeers(formattedBootstrapPeers);
+    };
+
+    updatePeers();
+    const interval = setInterval(updatePeers, 2000);
+    return () => clearInterval(interval);
+  }, [drpManager]);
 
   useEffect(() => {
     const initChatObject = async () => {
@@ -45,6 +70,16 @@ const LocalDRPStatus: React.FC<LocalDRPStatusProps> = ({
 
     initChatObject();
   }, [drpChatId, drpManager, onChatObjectCreated]);
+
+    useEffect(() => {
+    const interval = setInterval(() => {
+      setHashGraphSize(drpManager.object.hashGraph.getAllVertices().length.toString());
+    }, 1000);
+
+    // Cleanup function để tránh memory leak
+    return () => clearInterval(interval);
+  }, [drpManager]);
+
 
   const handleConfirmEdit = async (field: string, value: string) => {
     if (field === "drpChatId") {
@@ -114,7 +149,7 @@ const LocalDRPStatus: React.FC<LocalDRPStatusProps> = ({
         <Typography variant="subtitle2" gutterBottom>Connected Peers</Typography>
         {connectedPeers.map((peer) => (
           <Typography key={peer.id} variant="body2">
-            {bootstrapPeerIds.has(peer.id) && <strong>B </strong>}{peer.id}
+            {bootstrapPeerIds.has(peer.id) && <strong>B </strong>}{compressPeerId(peer.id)}
           </Typography>
         ))}
       </Box>

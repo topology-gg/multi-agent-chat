@@ -7,20 +7,10 @@ import ChatWindow from './components/ChatWindow';
 import { DRPNode } from '@ts-drp/node';
 import { DRPObject } from '@ts-drp/object';
 import { ChatOpenAI, ChatOpenAICallOptions, OpenAI } from '@langchain/openai';
-import { answerDRPChatTool, askDRPChatTool, DRPManager, readDRPChatTool } from './ai-chat/tools';
+import { answerDRPChatTool, askDRPChatTool, DRPManager, queryAnswerDRPChatTool, queryConversationDRPChatTool } from './ai-chat/tools';
 import { Runnable, RunnableConfig } from '@langchain/core/runnables';
 import { BaseLanguageModelInput } from '@langchain/core/language_models/base';
 import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
-import {
-  END,
-  MemorySaver,
-  MessagesAnnotation,
-  START,
-  StateGraph,
-} from '@langchain/langgraph/web';
-import { ToolNode } from '@langchain/langgraph/prebuilt';
-import { v4 as uuidv4 } from 'uuid';
-import { answerQuestionPrompt, startConversationPrompt } from './ai-chat/prompts';
 
 const theme = createTheme({
   palette: {
@@ -50,21 +40,36 @@ function App() {
   const [llm, setLlm] = useState<Runnable<BaseLanguageModelInput, AIMessageChunk, ChatOpenAICallOptions> | null>(null);
 
   useEffect(() => {
+    let mounted = true;
     const initialize = async () => {      
-      const drpManager = new DRPManager(process.env.REACT_APP_KEY_SEED || '');
+      if (!mounted) return;
+      
+      const drpManager = new DRPManager();
       await drpManager.start();
+      if (!mounted) {
+        return;
+      }
+      
+      console.log("Peer ID: ", drpManager.peerID);
       setDrpManager(drpManager);
 
-      const tools = [askDRPChatTool(drpManager), answerDRPChatTool(drpManager), readDRPChatTool(drpManager)];
+      const tools = [askDRPChatTool(drpManager), answerDRPChatTool(drpManager), 
+                    queryAnswerDRPChatTool(drpManager), queryConversationDRPChatTool(drpManager)];
       const llm = new ChatOpenAI({
-        model: 'gpt-4o-mini',
+        model: process.env.REACT_APP_OPENAI_MODEL,
         temperature: 0,
         apiKey: process.env.REACT_APP_OPENAI_API_KEY,
       }).bindTools(tools);
-      setLlm(llm);
+      if (mounted) {
+        setLlm(llm);
+      }
     }
 
     initialize();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return (
