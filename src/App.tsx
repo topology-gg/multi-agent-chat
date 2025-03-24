@@ -33,44 +33,50 @@ const theme = createTheme({
 //   ],
 // };
 
-
 function App() {
   const [drpManager, setDrpManager] = useState<DRPManager | null>(null);
-  const [chatObject, setChatObject] = useState<DRPObject | null>(null);
-  const [llm, setLlm] = useState<Runnable<BaseLanguageModelInput, AIMessageChunk, ChatOpenAICallOptions> | null>(null);
+  const [chatObject, setChatObject] = useState<DRPObject<ChatDRP> | null>(null);
+  const [llm, setLlm] = useState<Runnable<
+    BaseLanguageModelInput,
+    AIMessageChunk,
+    ChatOpenAICallOptions
+  > | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    const initialize = async () => {      
-      if (!mounted) return;
-      
-      const drpManager = new DRPManager();
-      await drpManager.start();
-      if (!mounted) {
-        return;
-      }
-      
-      console.log("Peer ID: ", drpManager.peerID);
-      setDrpManager(drpManager);
 
-      const tools = [askDRPChatTool(drpManager), answerDRPChatTool(drpManager), 
-                    queryAnswerDRPChatTool(drpManager), queryConversationDRPChatTool(drpManager)];
-      const llm = new ChatOpenAI({
-        model: process.env.REACT_APP_OPENAI_MODEL,
-        temperature: 0,
-        apiKey: process.env.REACT_APP_OPENAI_API_KEY,
-      }).bindTools(tools);
+    const drpManager = new DRPManager(
+      process.env.REACT_APP_KEY_SEED || undefined
+    );
+    drpManager.start().then(() => {
       if (mounted) {
-        setLlm(llm);
+        setDrpManager(drpManager);
       }
-    }
-
-    initialize();
+    });
 
     return () => {
       mounted = false;
+      drpManager?.stop();
     };
   }, []);
+
+  useEffect(() => {
+    if (!drpManager) return;
+    console.log("Peer ID: ", drpManager.peerID);
+
+    const tools = [
+      askDRPChatTool(drpManager),
+      answerDRPChatTool(drpManager),
+      queryAnswerDRPChatTool(drpManager),
+      queryConversationDRPChatTool(drpManager),
+    ];
+    const llm = new ChatOpenAI({
+      model: process.env.REACT_APP_OPENAI_MODEL,
+      temperature: 0,
+      apiKey: process.env.REACT_APP_OPENAI_API_KEY,
+    }).bindTools(tools);
+    setLlm(llm);
+  }, [drpManager]);
 
   return (
     <ThemeProvider theme={theme}>

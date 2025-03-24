@@ -50,7 +50,12 @@ export class DRPManager {
     this.started = true;
   }
 
-  async createObject(id = 'chat'): Promise<DRPObject> {
+  async stop(): Promise<void> {
+    await this._node.stop();
+    this.started = false;
+  }
+
+  async createObject(id = 'chat'): Promise<DRPObject<ChatDRP>> {
     this._object = await this._node.createObject({
       drp: new ChatDRP(),
       id,
