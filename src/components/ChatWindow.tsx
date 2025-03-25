@@ -2,7 +2,6 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Box, Paper, TextField, IconButton } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import ChatMessage from './ChatMessage';
-import { ChatDRP } from '../ai-chat/chat.drp';
 import { DRPManager, queryAnswerDRPChatTool, queryConversationDRPChatTool, answerDRPChatTool, askDRPChatTool } from '../ai-chat/tools';
 import { Runnable, RunnableConfig } from '@langchain/core/runnables'; 
 import { BaseLanguageModelInput } from '@langchain/core/language_models/base';
@@ -18,7 +17,6 @@ import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { v4 as uuidv4 } from 'uuid';
 import { answerQuestionPrompt, startConversationPrompt } from '../ai-chat/prompts';
 import { ChatOpenAICallOptions } from '@langchain/openai';
-import { IDRPObject } from '@ts-drp/types';
 
 interface ChatMessage {
   type: 'human' | 'agent';
@@ -65,8 +63,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
       await handleMessage(""); 
     }
 
-    drpManager.node.objectStore.subscribe(drpManager.object.id, (objectId: string, object: IDRPObject) => {
-      console.log(object);
+    drpManager.object.subscribe((_object, _origin, vertices) => {
+      if (vertices.some(v => v.peerId === drpManager.peerID)) {
+        handleMessage("");
+      }
     });
 
     // Chạy hàm xử lý mỗi 1 giây
@@ -272,7 +272,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
         <div ref={messagesEndRef} />
       </Box>
       
-      <Box component="form" onSubmit={(e) => {
+      <Box component="form" onSubmit={(e: any) => {
         e.preventDefault();
         handleUserInput(inputValue);
       }} sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>

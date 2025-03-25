@@ -7,7 +7,7 @@ import type { GossipSub, MeshPeer } from '@chainsafe/libp2p-gossipsub';
 import { z } from 'zod';
 import { DRPNode } from '@ts-drp/node';
 import { ChatDRP, type Message } from './chat.drp';
-import { type DRPObject, ObjectACL } from '@ts-drp/object';
+import { type DRPObject } from '@ts-drp/object';
 import type {
   DRPNetworkNodeConfig,
   KeychainOptions,
@@ -50,12 +50,12 @@ export class DRPManager {
     this.started = true;
   }
 
-  async stop(): Promise<void> {
-    await this._node.stop();
-    this.started = false;
-  }
+  // async stop(): Promise<void> {
+  //   await this._node.stop();
+  //   this.started = false;
+  // }
 
-  async createObject(id = 'chat'): Promise<DRPObject<ChatDRP>> {
+  async createObject(id = 'chat'): Promise<DRPObject> {
     this._object = await this._node.createObject({
       drp: new ChatDRP(),
       id,
@@ -230,7 +230,14 @@ export const queryAnswerDRPChatTool = (
     schema: queryAnswerDRPChatSchema,
     func: async ({ messageId }: { messageId: string }) => {
       await drpManager.start();
+      console.log('queryAnswerDRPChatTool', messageId, drpManager.chat.messages);
       const message = drpManager.chat.query_answer(messageId);
+      if (messageId == '') {
+        return {
+          content: '',
+          message: 'Wrong messageId input',
+        }
+      }
       if (message == null || message.content === '') {
         return {
           content: '',
@@ -239,7 +246,7 @@ export const queryAnswerDRPChatTool = (
       }
       return {
         content: message.content,
-        message: `You received an answer from remote agent: ${message.content}`,
+        message: `You received an answer from remote agent. Stop querying.`,
       };
     },
   });
@@ -253,7 +260,13 @@ export const queryConversationDRPChatTool = (
     schema: {},
     func: async () => {
       await drpManager.start();
-      const conversations = drpManager.chat.query_conversations(drpManager.peerID);
+      const conversations = drpManager.chat.query_conversationsNotFromPeer(drpManager.peerID);
+      if (conversations.length === 0) {
+        return {
+          content: '',
+          message: 'No unresponded conversations',
+        }
+      }
       let result = 'Unresponded conversations:\n\n';
       for (const conversation of conversations) {
         result += composeState(conversation, drpManager) + '\n\n';

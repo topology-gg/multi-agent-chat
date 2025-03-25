@@ -1,20 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Paper, IconButton } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
-import { DRPNode } from '@ts-drp/node';
 import { compressPeerId } from '../utils/utils';
-import { ChatDRP } from '../ai-chat/chat.drp';
 import { DRPObject } from '@ts-drp/object';
 import { DRPManager } from '../ai-chat/tools';
 
 interface PeerList {
   id: string;
-}
-
-interface EditHistory {
-  field: string;
-  value: string;
-  timestamp: number;
 }
 
 interface LocalDRPStatusProps {
@@ -26,7 +18,6 @@ const LocalDRPStatus: React.FC<LocalDRPStatusProps> = ({
   drpManager,
   onChatObjectCreated
 }) => {
-  const [peerId, setPeerId] = useState(drpManager.peerID);
   const [drpChatId, setDrpChatId] = useState("chat");
   const [hashGraphSize, setHashGraphSize] = useState("1");
   const [bootstrapPeers, setBootstrapPeers] = useState<PeerList[]>(drpManager.networkNode.getBootstrapNodes().map(id => ({ id })));
@@ -140,7 +131,7 @@ const LocalDRPStatus: React.FC<LocalDRPStatusProps> = ({
         Local DRP Status
       </Typography>
       <Box sx={{ mb: 2 }}>
-        {renderReadOnlyField('Peer ID', compressPeerId(peerId))}
+        {renderReadOnlyField('Peer ID', compressPeerId(drpManager.peerID))}
         {renderEditableField('DRP Chat ID', drpChatId, 'drpChatId')}
         {renderReadOnlyField('Hash Graph size', hashGraphSize)}
       </Box>
