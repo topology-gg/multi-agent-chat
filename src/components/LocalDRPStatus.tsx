@@ -1,20 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Paper, IconButton } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
-import { DRPNode } from '@ts-drp/node';
 import { compressPeerId } from '../utils/utils';
-import { ChatDRP } from '../ai-chat/chat.drp';
 import { DRPObject } from '@ts-drp/object';
 import { DRPManager } from '../ai-chat/tools';
 
 interface PeerList {
   id: string;
-}
-
-interface EditHistory {
-  field: string;
-  value: string;
-  timestamp: number;
 }
 
 interface LocalDRPStatusProps {
@@ -26,18 +18,15 @@ const LocalDRPStatus: React.FC<LocalDRPStatusProps> = ({
   drpManager,
   onChatObjectCreated
 }) => {
-  const [peerId, setPeerId] = useState(drpManager.peerID);
   const [drpChatId, setDrpChatId] = useState("chat");
   const [hashGraphSize, setHashGraphSize] = useState("1");
   const [bootstrapPeers, setBootstrapPeers] = useState<PeerList[]>(drpManager.networkNode.getBootstrapNodes().map(id => ({ id })));
   const [connectedPeers, setConnectedPeers] = useState<PeerList[]>([]);
   const [editingField, setEditingField] = useState<string | null>(null);
 
-  // Create a Set of bootstrap peer IDs for efficient lookup
   const bootstrapPeerIds = new Set(bootstrapPeers.map(peer => peer.id));
 
   const extractPeerIdFromMultiaddr = (multiaddr: string): string => {
-    // Lấy phần cuối cùng sau "/p2p/"
     const parts = multiaddr.split('/p2p/');
     return parts[parts.length - 1];
   };
@@ -50,7 +39,6 @@ const LocalDRPStatus: React.FC<LocalDRPStatusProps> = ({
       
       setConnectedPeers(connectedPeers.map(peer => ({ id: peer })));
       
-      // Trích xuất peer ID từ multiaddress của bootstrap peers
       const formattedBootstrapPeers = bootstrapPeers.map(multiaddr => ({
         id: extractPeerIdFromMultiaddr(multiaddr)
       }));
@@ -71,15 +59,13 @@ const LocalDRPStatus: React.FC<LocalDRPStatusProps> = ({
     initChatObject();
   }, [drpChatId, drpManager, onChatObjectCreated]);
 
-    useEffect(() => {
+  useEffect(() => {
     const interval = setInterval(() => {
       setHashGraphSize(drpManager.object.hashGraph.getAllVertices().length.toString());
     }, 1000);
 
-    // Cleanup function để tránh memory leak
     return () => clearInterval(interval);
   }, [drpManager]);
-
 
   const handleConfirmEdit = async (field: string, value: string) => {
     if (field === "drpChatId") {
@@ -140,7 +126,7 @@ const LocalDRPStatus: React.FC<LocalDRPStatusProps> = ({
         Local DRP Status
       </Typography>
       <Box sx={{ mb: 2 }}>
-        {renderReadOnlyField('Peer ID', compressPeerId(peerId))}
+        {renderReadOnlyField('Peer ID', compressPeerId(drpManager.peerID))}
         {renderEditableField('DRP Chat ID', drpChatId, 'drpChatId')}
         {renderReadOnlyField('Hash Graph size', hashGraphSize)}
       </Box>
