@@ -24,11 +24,9 @@ const LocalDRPStatus: React.FC<LocalDRPStatusProps> = ({
   const [connectedPeers, setConnectedPeers] = useState<PeerList[]>([]);
   const [editingField, setEditingField] = useState<string | null>(null);
 
-  // Create a Set of bootstrap peer IDs for efficient lookup
   const bootstrapPeerIds = new Set(bootstrapPeers.map(peer => peer.id));
 
   const extractPeerIdFromMultiaddr = (multiaddr: string): string => {
-    // Lấy phần cuối cùng sau "/p2p/"
     const parts = multiaddr.split('/p2p/');
     return parts[parts.length - 1];
   };
@@ -41,7 +39,6 @@ const LocalDRPStatus: React.FC<LocalDRPStatusProps> = ({
       
       setConnectedPeers(connectedPeers.map(peer => ({ id: peer })));
       
-      // Trích xuất peer ID từ multiaddress của bootstrap peers
       const formattedBootstrapPeers = bootstrapPeers.map(multiaddr => ({
         id: extractPeerIdFromMultiaddr(multiaddr)
       }));
@@ -62,15 +59,13 @@ const LocalDRPStatus: React.FC<LocalDRPStatusProps> = ({
     initChatObject();
   }, [drpChatId, drpManager, onChatObjectCreated]);
 
-    useEffect(() => {
+  useEffect(() => {
     const interval = setInterval(() => {
       setHashGraphSize(drpManager.object.hashGraph.getAllVertices().length.toString());
     }, 1000);
 
-    // Cleanup function để tránh memory leak
     return () => clearInterval(interval);
   }, [drpManager]);
-
 
   const handleConfirmEdit = async (field: string, value: string) => {
     if (field === "drpChatId") {

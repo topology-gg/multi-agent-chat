@@ -45,7 +45,6 @@ function App() {
 
   useEffect(() => {
     if (!drpManager) return;
-    console.log("Peer ID: ", drpManager.peerID);
 
     const tools = [
       askDRPChatTool(drpManager),

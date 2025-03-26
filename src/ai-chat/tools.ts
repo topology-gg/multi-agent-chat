@@ -23,9 +23,6 @@ export class DRPManager {
   private readonly keychainConfig: KeychainOptions = {};
   private readonly networkConfig: DRPNetworkNodeConfig = {
     listen_addresses: ['/p2p-circuit', '/webrtc'],
-    bootstrap_peers: [
-      '/ip4/127.0.0.1/tcp/50000/ws/p2p/16Uiu2HAmTY71bbCHtmYD3nvVKUGbk7NWqLBbPFNng4jhaXJHi3W5',
-    ],
     log_config: this.logConfig,
   };
 
@@ -230,7 +227,6 @@ export const queryAnswerDRPChatTool = (
     schema: queryAnswerDRPChatSchema,
     func: async ({ messageId }: { messageId: string }) => {
       await drpManager.start();
-      console.log('queryAnswerDRPChatTool', messageId, drpManager.chat.messages);
       const message = drpManager.chat.query_answer(messageId);
       if (messageId == '') {
         return {

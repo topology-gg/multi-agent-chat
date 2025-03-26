@@ -115,10 +115,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
         if (func === 'askDRPChatTool') {
           const parsedResult = JSON.parse(result.messages[0].content);
           const content = parsedResult.content;
-          // Cập nhật agentConversation của tin nhắn cuối cùng từ người dùng
           setMessages(prev => {
             const newMessages = [...prev];
-            // Tìm tin nhắn cuối cùng từ người dùng
             for (let i = newMessages.length - 1; i >= 0; i--) {
               if (newMessages[i].type === 'human') {
                 newMessages[i] = {
@@ -134,7 +132,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
             return newMessages;
           });
         } else if (func === 'queryAnswerDRPChatTool') {
-          console.log(result.messages[0].content);
           const parsedResult = JSON.parse(result.messages[0].content);
           const content = parsedResult.content;
           setMessages(prev => {
@@ -233,31 +230,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
       setMessages(prev => [...prev, agentMessage]);
       setIsProcessing(false);
     }
-
-    // // Giả lập remote agent trả lời local agent
-    // setTimeout(() => {
-    //   setMessages(prev => prev.map(msg => {
-    //     if (msg === newMessage) {
-    //       return {
-    //         ...msg,
-    //         agentConversation: {
-    //           ...msg.agentConversation!,
-    //           remoteResponse: `Đã phân tích xong yêu cầu: "${userMessage}". Đang xử lý...`
-    //         }
-    //       };
-    //     }
-    //     return msg;
-    //   }));
-
-    //   // Sau đó local agent mới trả lời user
-    //   setTimeout(() => {
-    //     setMessages(prev => [...prev, {
-    //       type: 'agent',
-    //       message: `Đây là kết quả cho "${userMessage}"`
-    //     }]);
-    //     setIsProcessing(false);
-    //   }, 1000);
-    // }, 1000);
   };
 
   return (
@@ -280,7 +252,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
           <TextField
             fullWidth
             variant="outlined"
-            placeholder={isProcessing ? "Đang xử lý..." : "Nhập tin nhắn..."}
+            placeholder={isProcessing ? "Processing..." : "Input your message..."}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={(e) => {
