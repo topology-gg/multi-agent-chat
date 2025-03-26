@@ -2,10 +2,9 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Box, Paper, TextField, IconButton } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import ChatMessage from './ChatMessage';
-import { DRPManager, queryAnswerDRPChatTool, queryConversationDRPChatTool, answerDRPChatTool, askDRPChatTool } from '../ai-chat/tools';
-import { Runnable, RunnableConfig } from '@langchain/core/runnables'; 
-import { BaseLanguageModelInput } from '@langchain/core/language_models/base';
-import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
+import { queryAnswerDRPChatTool, queryConversationDRPChatTool, answerDRPChatTool, askDRPChatTool } from '../ai-chat/tools';
+import { RunnableConfig } from '@langchain/core/runnables'; 
+import { AIMessage } from '@langchain/core/messages';
 import {
   END,
   MemorySaver,
@@ -16,7 +15,7 @@ import {
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { v4 as uuidv4 } from 'uuid';
 import { answerQuestionPrompt, startConversationPrompt } from '../ai-chat/prompts';
-import { ChatOpenAICallOptions } from '@langchain/openai';
+import { useDRP } from '../contexts/DRPContext';
 
 interface ChatMessage {
   type: 'human' | 'agent';
@@ -28,12 +27,8 @@ interface ChatMessage {
   };
 }
 
-interface ChatWindowProps {
-  drpManager: DRPManager;
-  llm: Runnable<BaseLanguageModelInput, AIMessageChunk, ChatOpenAICallOptions>;
-}
-
-const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
+const ChatWindow: React.FC = () => {
+  const { drpManager, llm } = useDRP();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -49,9 +44,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
 
   // clear messages each time drpManader.DRPObject is changed
   useEffect(() => {
+    if (!drpManager) return;
     clearMessages();
-  }, [drpManager.object]);
-
+  }, [drpManager?.object]);
 
   useEffect(() => {
     scrollToBottom();
@@ -59,6 +54,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
 
   // Thêm useEffect cho chức năng tự động
   useEffect(() => {
+    if (!drpManager) return;
+
     const processAutonomousMessage = async () => {
       await handleMessage(""); 
     }
@@ -198,7 +195,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
     return output.messages[output.messages.length - 1].content as string;
   }
 
-
   const handleUserInput = async (userMessage: string) => {
     if (!userMessage.trim() || isProcessing) return;
 
@@ -232,6 +228,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
     }
   };
 
+  if (!drpManager || !drpManager.started || !llm) {
+    return null;
+  }
+
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
@@ -251,18 +251,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
         <Box sx={{ display: 'flex', gap: 1 }}>
           <TextField
             fullWidth
-            variant="outlined"
-            placeholder={isProcessing ? "Processing..." : "Input your message..."}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                handleUserInput(inputValue);
-              }
-            }}
+            placeholder="Input your message..."
             disabled={isProcessing}
           />
-          <IconButton type="submit" color="primary" disabled={isProcessing}>
+          <IconButton 
+            type="submit" 
+            color="primary" 
+            disabled={isProcessing || !inputValue.trim()}
+          >
             <SendIcon />
           </IconButton>
         </Box>
