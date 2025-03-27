@@ -127,12 +127,12 @@ export class DRPManager {
   }
 }
 
-function composeState(conversation: Message[], drpManager: DRPManager): string {
+function composeState(conversation: Message[], chatObject: DRPObject): string {
   let text = '# Conversation\n\n';
   for (const message of conversation) {
     const {
-      networkNode: { peerId },
-    } = drpManager;
+      hashGraph: { peerId },
+    } = chatObject;
     const isRemote = message.peerId !== peerId;
     if (isRemote) {
       text += `Remote agent ${message.peerId}:\n\nMessage id: ${message.messageId}, content: ${message.content}\n\n`;
@@ -161,16 +161,21 @@ const askDRPChatSchema = z.object({
 });
 
 export const askDRPChatTool = (
-  drpManager: DRPManager,
+  chatObject: DRPObject,
 ): StructuredToolInterface =>
   new DynamicStructuredTool({
     name: 'askDRPChatTool',
     description: 'A tool for asking a question to a specific agent',
     schema: askDRPChatSchema,
     func: async ({ content, targetPeerId }: { content: string; targetPeerId: string }) => {
-      await drpManager.start();
       content = composeContentQuestioner(content);
-      const newMessageId = await drpManager.sendMessage(content, false, targetPeerId);
+      const newMessageId = (chatObject.drp as ChatDRP).newMessage({
+        content,
+        peerId: chatObject.hashGraph.peerId,
+        messageId: '',
+        end: false,
+        targetPeerId,
+      });
       return {
         messageId: newMessageId,
         content: content,
@@ -193,16 +198,22 @@ const answerDRPChatSchema = z.object({
 });
 
 export const answerDRPChatTool = (
-  drpManager: DRPManager,
+  chatObject: DRPObject,
 ): StructuredToolInterface =>
   new DynamicStructuredTool({
     name: 'answerDRPChatTool',
     description: 'A tool for answering a question to a specific agent',
     schema: answerDRPChatSchema,
     func: async ({ content, parentMessageId, targetPeerId }: { content: string; parentMessageId: string; targetPeerId: string }) => {
-      await drpManager.start();
       content = composeContentAnswerer(content);
-      const newMessageId = await drpManager.sendMessage(content, true, targetPeerId, parentMessageId);
+      const newMessageId = (chatObject.drp as ChatDRP).newMessage({
+        content,
+        peerId: chatObject.hashGraph.peerId,
+        messageId: '',
+        end: true,
+        targetPeerId,
+        parentMessageId,
+      });
       return {
         messageId: newMessageId,
         content: content,
@@ -219,15 +230,14 @@ const queryAnswerDRPChatSchema = z.object({
 });
 
 export const queryAnswerDRPChatTool = (
-  drpManager: DRPManager,
+  chatObject: DRPObject,
 ): StructuredToolInterface =>
   new DynamicStructuredTool({
     name: 'queryAnswerDRPChatTool',
     description: 'A tool for querying an answer from a specific agent',
     schema: queryAnswerDRPChatSchema,
     func: async ({ messageId }: { messageId: string }) => {
-      await drpManager.start();
-      const message = drpManager.chat.query_answer(messageId);
+      const message = (chatObject.drp as ChatDRP).query_answer(messageId);
       if (messageId == '') {
         return {
           content: '',
@@ -248,15 +258,14 @@ export const queryAnswerDRPChatTool = (
   });
 
 export const queryConversationDRPChatTool = (
-  drpManager: DRPManager,
+  chatObject: DRPObject,
 ): StructuredToolInterface =>
   new DynamicStructuredTool({
     name: 'queryConversationDRPChatTool',
     description: 'A tool for querying a conversation from a specific agent',
     schema: {},
     func: async () => {
-      await drpManager.start();
-      const conversations = drpManager.chat.query_conversationsNotFromPeer(drpManager.peerID);
+      const conversations = (chatObject.drp as ChatDRP).query_conversationsNotFromPeer(chatObject.hashGraph.peerId);
       if (conversations.length === 0) {
         return {
           content: '',
@@ -265,7 +274,7 @@ export const queryConversationDRPChatTool = (
       }
       let result = 'Unresponded conversations:\n\n';
       for (const conversation of conversations) {
-        result += composeState(conversation, drpManager) + '\n\n';
+        result += composeState(conversation, chatObject) + '\n\n';
         console.log(
           `Found question "${conversation[0].content}" with id "${conversation[0].messageId}" from peerId "${conversation[0].peerId}"\n`,
         );

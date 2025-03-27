@@ -2,21 +2,8 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Box, Paper, TextField, IconButton } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import ChatMessage from './ChatMessage';
-import { DRPManager, queryAnswerDRPChatTool, queryConversationDRPChatTool, answerDRPChatTool, askDRPChatTool } from '../ai-chat/tools';
-import { Runnable, RunnableConfig } from '@langchain/core/runnables'; 
-import { BaseLanguageModelInput } from '@langchain/core/language_models/base';
-import { AIMessage, AIMessageChunk } from '@langchain/core/messages';
-import {
-  END,
-  MemorySaver,
-  MessagesAnnotation,
-  START,
-  StateGraph,
-} from '@langchain/langgraph/web';
-import { ToolNode } from '@langchain/langgraph/prebuilt';
-import { v4 as uuidv4 } from 'uuid';
-import { answerQuestionPrompt, startConversationPrompt } from '../ai-chat/prompts';
-import { ChatOpenAICallOptions } from '@langchain/openai';
+import { answerQuestionPrompt, startConversationPrompt } from '../contexts/ai-chat/prompts';
+import { useDRP } from '../contexts/DRPAgentContext';
 
 interface ChatMessage {
   type: 'human' | 'agent';
@@ -28,16 +15,13 @@ interface ChatMessage {
   };
 }
 
-interface ChatWindowProps {
-  drpManager: DRPManager;
-  llm: Runnable<BaseLanguageModelInput, AIMessageChunk, ChatOpenAICallOptions>;
-}
-
-const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
+const ChatWindow: React.FC = () => {
+  const { drpNode, agent, chatObject } = useDRP();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [onQuestion, setOnQuestion] = useState(false);
 
   const clearMessages = () => {
     setMessages([]);
@@ -49,141 +33,96 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
 
   // clear messages each time drpManader.DRPObject is changed
   useEffect(() => {
+    if (!drpNode || !chatObject) return;
     clearMessages();
-  }, [drpManager.object]);
-
+  }, [drpNode, chatObject]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Thêm useEffect cho chức năng tự động
+  // Add useEffect for autonomous functionality
   useEffect(() => {
-    const processAutonomousMessage = async () => {
-      await handleMessage(""); 
-    }
-
-    drpManager.object.subscribe((_object, _origin, vertices) => {
-      if (vertices.some(v => v.peerId === drpManager.peerID)) {
-        handleMessage("");
-      }
-    });
-
-    // Chạy hàm xử lý mỗi 1 giây
-    const interval = setInterval(processAutonomousMessage, 1000);
-
-    // Cleanup function
-    return () => clearInterval(interval);
-  }, [drpManager]);
-
-  const handleMessage = async (message: string) => {
-    if (!drpManager || !llm) {
+    if (!chatObject || !drpNode || !agent) {
       return;
     }
 
-    let count = 0;
-    const shouldContinue = ({
-      messages,
-    }: typeof MessagesAnnotation.State): 'tools' | typeof END => {
-      if (++count > 10) {
-        return END;
+    chatObject?.subscribe((_object, _origin, vertices) => {
+      if (vertices.some(v => v.peerId !== drpNode?.networkNode.peerId)) {
+        autonomousMessage().catch(error => {
+          console.error("Error in autonomous message handler:", error);
+        });
       }
-      const lastMessage = messages[messages.length - 1] as AIMessage;
+      if (onQuestion) {
+        vertices.forEach(v => {
+          if (v.peerId === drpNode?.networkNode.peerId) {
+            const localAgentMessages = v.operation?.value[0].content;
+            setMessages(prevMessages => {
+              const newMessages = [...prevMessages];
+              const lastMessage = newMessages[newMessages.length - 1];
+              if (lastMessage) {
+                lastMessage.agentConversation = {
+                  localMessage: localAgentMessages,
+                  timestamp: Date.now(),
+                };
+              }
+              return newMessages;
+            });
+          } else {
+            const remoteAgentMessages = v.operation?.value[0].content;
+            setMessages(prevMessages => {
+              const newMessages = [...prevMessages];
+              const lastMessage = newMessages[newMessages.length - 1];
+              if (lastMessage) {
+                lastMessage.agentConversation = {
+                  localMessage: lastMessage.agentConversation?.localMessage || '',
+                  remoteResponse: remoteAgentMessages,
+                  timestamp: Date.now(),
+                };
+              }
+              return newMessages;
+            });
+          }
+        });
+      }
+    });
+  }, [chatObject, drpNode, agent, onQuestion]);
 
-      if (
-        lastMessage.tool_calls !== undefined &&
-        lastMessage.tool_calls.length > 0
-      ) {
-        return 'tools';
-      }
-      return END;
-    };
-    const callModel = async (
-      state: typeof MessagesAnnotation.State,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- This is a workaround to avoid type errors
-    ): Promise<any> => {
-      const response = await llm?.invoke(state.messages);
-      return { messages: [response] };
-    };
-    const tools = [askDRPChatTool(drpManager), answerDRPChatTool(drpManager), queryAnswerDRPChatTool(drpManager), queryConversationDRPChatTool(drpManager)];
-    const toolNode = new ToolNode(tools);
-    const originalInvoke = toolNode.invoke.bind(toolNode);
-    toolNode.invoke = async (input: any, config: RunnableConfig) => {
-      try {
-        const result = await originalInvoke(input, config);
-        const func = result.messages[0].name;
-        if (func === 'askDRPChatTool') {
-          const parsedResult = JSON.parse(result.messages[0].content);
-          const content = parsedResult.content;
-          setMessages(prev => {
-            const newMessages = [...prev];
-            for (let i = newMessages.length - 1; i >= 0; i--) {
-              if (newMessages[i].type === 'human') {
-                newMessages[i] = {
-                  ...newMessages[i],
-                  agentConversation: {
-                    localMessage: content,
-                    timestamp: Date.now()
-                  }
-                };
-                break;
-              }
-            }
-            return newMessages;
-          });
-        } else if (func === 'queryAnswerDRPChatTool') {
-          const parsedResult = JSON.parse(result.messages[0].content);
-          const content = parsedResult.content;
-          setMessages(prev => {
-            const newMessages = [...prev];
-            for (let i = newMessages.length - 1; i >= 0; i--) {
-              if (newMessages[i].type === 'human') {
-                const currentAgentConversation = newMessages[i].agentConversation;
-                newMessages[i] = {
-                  ...newMessages[i],
-                  agentConversation: {
-                    localMessage: currentAgentConversation?.localMessage || '',
-                    remoteResponse: content,
-                    timestamp: Date.now()
-                  }
-                };
-                break;
-              }
-            } 
-            return newMessages;
-          });
-        }
-        return result;
-      } catch (error) {
-        console.error(error);
-      }
+  const autonomousMessage = async () => {
+    if (!agent) {
+      console.error("Agent is not initialized");
+      return;
     }
-    const workflow = new StateGraph(MessagesAnnotation)
-      .addNode('agent', callModel)
-      .addNode('tools', toolNode)
-      .addEdge(START, 'agent')
-      .addEdge('tools', 'agent')
-      .addConditionalEdges('agent', shouldContinue);
-    const memory = new MemorySaver();
-    const app = workflow.compile({ checkpointer: memory });
-    const config = {
-      configurable: { thread_id: uuidv4() },
-    };
-    let input = [];
-    if (message === '') {
-      input = [
+
+    try {
+      const input = [
         {
           role: 'system',
           content: answerQuestionPrompt,
         },
         {
           role: 'user',
-          content:
-            "You should use readDRPChatTool to get the conversation. There is no messageId. Don't pass it. If you know the answer, you can use write drp chat tool to send the answer.",
-        },
-      ];
-    } else {
-      input = [
+          content: 'Use queryConversationDRPChatTool to get the question from other agents.',
+        }
+      ];      
+      const output = await agent.invoke({ messages: input });
+      if (!output) {
+        throw new Error('No output from agent');
+      }
+      const answer = output.messages[output.messages.length - 1].content;
+      if (!answer) {
+        throw new Error('Invalid output format from agent');
+      }
+      return answer as string;
+    } catch (error) {
+      console.error("Error in autonomousMessage:", error);
+      throw error;
+    }
+  }
+
+  const handleMessage = async (message: string) => {
+    setOnQuestion(true);
+    let input = [
         {
           role: 'system',
           content: startConversationPrompt,
@@ -193,11 +132,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
           content: message,
         },
       ];
+    try {
+      const output = await agent?.invoke({ messages: input });
+      if (!output) {
+        throw new Error('No output from agent');
+      }
+      setOnQuestion(false);
+      return output.messages[output.messages.length - 1].content as string;
+    } catch (error) {
+      setOnQuestion(false);
+      return `An error occurred while processing the message. Please try again. ${error}`;
     }
-    const output = await app.invoke({ messages: input }, config);
-    return output.messages[output.messages.length - 1].content as string;
   }
-
 
   const handleUserInput = async (userMessage: string) => {
     if (!userMessage.trim() || isProcessing) return;
@@ -205,7 +151,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
     setIsProcessing(true);
     setInputValue('');
 
-    // Tạo tin nhắn mới với agentConversation
+    // Create new message with agentConversation
     const newMessage: ChatMessage = {
       type: 'human',
       message: userMessage,
@@ -217,7 +163,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
     if (!output) {
       const errorMessage: ChatMessage = {
         type: 'agent',
-        message: 'Lỗi khi xử lý tin nhắn. Vui lòng thử lại.'
+        message: 'Error processing message. Please try again.'
       };
       setMessages(prev => [...prev, errorMessage]);
       setIsProcessing(false);
@@ -231,6 +177,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
       setIsProcessing(false);
     }
   };
+
+  if (!drpNode || !drpNode.networkNode.peerId || !agent) {
+    return null;
+  }
 
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -251,18 +201,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ drpManager, llm }) => {
         <Box sx={{ display: 'flex', gap: 1 }}>
           <TextField
             fullWidth
-            variant="outlined"
-            placeholder={isProcessing ? "Processing..." : "Input your message..."}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                handleUserInput(inputValue);
-              }
-            }}
+            placeholder="Input your message..."
             disabled={isProcessing}
           />
-          <IconButton type="submit" color="primary" disabled={isProcessing}>
+          <IconButton 
+            type="submit" 
+            color="primary" 
+            disabled={isProcessing || !inputValue.trim()}
+          >
             <SendIcon />
           </IconButton>
         </Box>
