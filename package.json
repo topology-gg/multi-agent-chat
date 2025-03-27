@@ -18,6 +18,7 @@
     "@langchain/openai": "^0.4.4",
     "@mui/icons-material": "^6.4.8",
     "@mui/material": "^6.4.8",
+    "@scrypt-inc/ecpair": "^3.0.5",
     "@scrypt-inc/scrypt-ts-btc": "^0.2.8",
     "@ts-drp/network": "^0.10.0",
     "@ts-drp/node": "^0.10.0",
@@ -25,6 +26,7 @@
     "@ts-drp/types": "^0.10.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "scrypt-ts": "^1.4.5",
     "uint8array-tools": "^0.0.9",
     "uuid": "^11.1.0",
     "zod": "^3.24.2"
