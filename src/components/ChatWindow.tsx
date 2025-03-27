@@ -111,6 +111,7 @@ const ChatWindow: React.FC = () => {
           content: 'Use queryConversationDRPChatTool to get the question from other agents.',
         }
       ];      
+      console.log("input", input);
       const output = await agent.invoke({ messages: input });
       if (!output) {
         throw new Error('No output from agent');
@@ -148,7 +149,7 @@ const ChatWindow: React.FC = () => {
       return output.messages[output.messages.length - 1].content as string;
     } catch (error) {
       setOnQuestion(false);
-      return 'Có lỗi xảy ra khi xử lý tin nhắn. Vui lòng thử lại.';
+      return `Có lỗi xảy ra khi xử lý tin nhắn. Vui lòng thử lại. ${error}`;
     }
   }
 
