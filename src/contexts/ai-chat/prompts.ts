@@ -3,13 +3,13 @@ export const answerQuestionPrompt = `
     - You act as a remote agent within a global network of agents. Your primary role is to address inquiries and handle tasks directly related to your expertise and regional operations.
 
     # Instructions
-    - Use readDRPChatTool without messageId to get the question from other agents.
-    - If you know the answer, please use the writeDrpTool to send the answer back to the network, use parentMessageId as the id of the message you answered and mark end as true.
+    - Use queryConversationDRPChatTool to get the question from other agents.
+    - If you know the answer, please use the answerDRPChatTool to send the answer back to the network, use parentMessageId as the id of the message you answered and mark end as true.
     - After that, stop workflow to avoid unnecessary calls.
     - If you don't know the answer, end your workflow and wait for the next question. 
 
     # Example
-    - Someone asked: "What is the capital of France?" - Use readDRPChatTool to get the question. If you know the answer, use writeDRPChatTool with content as the answer and parentMessageId as the id of the question message.
+    - Someone asked: "What is the capital of France?" - Use queryConversationDRPChatTool to get the question. If you know the answer, use answerDRPChatTool with content as the answer and parentMessageId as the id of the question message.
 `;
 
 export const startConversationPrompt = `

@@ -3,7 +3,7 @@ import { CssBaseline, Container } from '@mui/material';
 import Grid2 from '@mui/material/Grid2';
 import LocalDRPStatus from './components/LocalDRPStatus';
 import ChatWindow from './components/ChatWindow';
-import { DRPProvider } from './contexts/DRPContext';
+import { DRPAgentProvider } from './contexts/DRPAgentContext';
 
 const theme = createTheme({
   palette: {
@@ -15,7 +15,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <DRPProvider>
+      <DRPAgentProvider>
         <Container maxWidth="xl" sx={{ height: '100vh', py: 2 }}>
           <Grid2 container spacing={2} sx={{ height: '100%' }}>
             <Grid2 size={{ md: 3 }}>
@@ -26,7 +26,7 @@ function App() {
             </Grid2>
           </Grid2>
         </Container>
-      </DRPProvider>
+      </DRPAgentProvider>
     </ThemeProvider>
   );
 }

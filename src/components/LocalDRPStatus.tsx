@@ -2,14 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { Box, Typography, Paper, IconButton } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import { compressPeerId } from '../utils/utils';
-import { useDRP } from '../contexts/DRPContext';
+import { useDRP } from '../contexts/DRPAgentContext';
+import { ChatDRP } from '../contexts/ai-chat/chat.drp';
 
 interface PeerList {
   id: string;
 }
 
 const LocalDRPStatus: React.FC = () => {
-  const { drpNode, setChatObject } = useDRP();
+  const { drpNode, setChatObject, chatObject } = useDRP();
   const [drpChatId, setDrpChatId] = useState("chat");
   const [hashGraphSize, setHashGraphSize] = useState("1");
   const [bootstrapPeers, setBootstrapPeers] = useState<PeerList[]>([]);
@@ -27,8 +28,8 @@ const LocalDRPStatus: React.FC = () => {
     if (!drpNode) return;
 
     const updatePeers = async () => {
-      const peers = drpManager.networkNode.getAllPeers();
-      const bootstrapPeers = drpManager.networkNode.getBootstrapNodes();
+      const peers = drpNode.networkNode.getAllPeers();
+      const bootstrapPeers = drpNode.networkNode.getBootstrapNodes();
       const connectedPeers = peers.filter(peer => !bootstrapPeers.includes(peer));
       
       setConnectedPeers(connectedPeers.map(peer => ({ id: peer })));
@@ -42,34 +43,26 @@ const LocalDRPStatus: React.FC = () => {
     updatePeers();
     const interval = setInterval(updatePeers, 2000);
     return () => clearInterval(interval);
-  }, [drpManager]);
+  }, [drpNode]);
 
   useEffect(() => {
-    if (!drpManager) return;
-
-    const initChatObject = async () => {
-      const object = await drpManager.createObject(drpChatId);
-      setChatObject(object);
-    };
-
-    initChatObject();
-  }, [drpChatId, drpManager, setChatObject]);
-
-  useEffect(() => {
-    if (!drpManager) return;
+    if (!chatObject) return;
 
     const interval = setInterval(() => {
-      setHashGraphSize(drpManager.object.hashGraph.getAllVertices().length.toString());
+      setHashGraphSize(chatObject.hashGraph.getAllVertices().length.toString() ?? "0");
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [drpManager]);
+  }, [chatObject]);
 
   const handleConfirmEdit = async (field: string, value: string) => {
-    if (!drpManager) return;
+    if (!drpNode) return;
 
     if (field === "drpChatId") {
-      const object = await drpManager.createObject(value);
+      const object = await drpNode.createObject({
+        id: value,
+        drp: new ChatDRP()
+      });
       setChatObject(object);
     }
 
@@ -120,7 +113,7 @@ const LocalDRPStatus: React.FC = () => {
     </Typography>
   );
 
-  if (!drpManager || !drpManager.started) {
+  if (!drpNode || !drpNode.networkNode.peerId) {
     return null;
   }
 
@@ -130,7 +123,7 @@ const LocalDRPStatus: React.FC = () => {
         Local DRP Status
       </Typography>
       <Box sx={{ mb: 2 }}>
-        {renderReadOnlyField('Peer ID', compressPeerId(drpManager.peerID))}
+        {renderReadOnlyField('Peer ID', compressPeerId(drpNode.networkNode.peerId))}
         {renderEditableField('DRP Chat ID', drpChatId, 'drpChatId')}
         {renderReadOnlyField('Hash Graph size', hashGraphSize)}
       </Box>
