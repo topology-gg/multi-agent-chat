@@ -130,9 +130,14 @@ const LocalDRPStatus: React.FC = () => {
       
       <Box>
         <Typography variant="subtitle2" gutterBottom>Connected Peers</Typography>
-        {connectedPeers.map((peer) => (
+        {bootstrapPeers.map((peer) => (
           <Typography key={peer.id} variant="body2">
-            {bootstrapPeerIds.has(peer.id) && <strong>B </strong>}{compressPeerId(peer.id)}
+            <strong>B </strong>{compressPeerId(peer.id)}
+          </Typography>
+        ))}
+        {connectedPeers.filter(peer => !bootstrapPeerIds.has(peer.id)).map((peer) => (
+          <Typography key={peer.id} variant="body2">
+            {compressPeerId(peer.id)}
           </Typography>
         ))}
       </Box>

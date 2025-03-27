@@ -169,7 +169,6 @@ export const askDRPChatTool = (
     schema: askDRPChatSchema,
     func: async ({ content, targetPeerId }: { content: string; targetPeerId: string }) => {
       content = composeContentQuestioner(content);
-      console.log("ask", chatObject.drp as ChatDRP);
       const newMessageId = (chatObject.drp as ChatDRP).newMessage({
         content,
         peerId: chatObject.hashGraph.peerId,
@@ -207,7 +206,6 @@ export const answerDRPChatTool = (
     schema: answerDRPChatSchema,
     func: async ({ content, parentMessageId, targetPeerId }: { content: string; parentMessageId: string; targetPeerId: string }) => {
       content = composeContentAnswerer(content);
-      console.log("answer", chatObject.drp as ChatDRP);
       const newMessageId = (chatObject.drp as ChatDRP).newMessage({
         content,
         peerId: chatObject.hashGraph.peerId,
@@ -240,7 +238,6 @@ export const queryAnswerDRPChatTool = (
     schema: queryAnswerDRPChatSchema,
     func: async ({ messageId }: { messageId: string }) => {
       const message = (chatObject.drp as ChatDRP).query_answer(messageId);
-      console.log("queryAnswerDRPChatTool", message);
       if (messageId == '') {
         return {
           content: '',
@@ -269,7 +266,6 @@ export const queryConversationDRPChatTool = (
     schema: {},
     func: async () => {
       const conversations = (chatObject.drp as ChatDRP).query_conversationsNotFromPeer(chatObject.hashGraph.peerId);
-      console.log("queryConversationDRPChatTool", conversations);
       if (conversations.length === 0) {
         return {
           content: '',

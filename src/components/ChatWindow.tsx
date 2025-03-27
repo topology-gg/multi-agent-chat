@@ -33,26 +33,20 @@ const ChatWindow: React.FC = () => {
 
   // clear messages each time drpManader.DRPObject is changed
   useEffect(() => {
-    if (!drpNode) return;
+    if (!drpNode || !chatObject) return;
     clearMessages();
-  }, [drpNode]);
+  }, [drpNode, chatObject]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Thêm useEffect cho chức năng tự động
+  // Add useEffect for autonomous functionality
   useEffect(() => {
     if (!chatObject || !drpNode || !agent) {
-      console.log("Missing required dependencies:", { 
-        hasChatObject: !!chatObject, 
-        hasDrpNode: !!drpNode, 
-        hasAgent: !!agent 
-      });
       return;
     }
 
-    console.log("Setting up chat subscription");
     chatObject?.subscribe((_object, _origin, vertices) => {
       if (vertices.some(v => v.peerId !== drpNode?.networkNode.peerId)) {
         autonomousMessage().catch(error => {
@@ -111,7 +105,6 @@ const ChatWindow: React.FC = () => {
           content: 'Use queryConversationDRPChatTool to get the question from other agents.',
         }
       ];      
-      console.log("input", input);
       const output = await agent.invoke({ messages: input });
       if (!output) {
         throw new Error('No output from agent');
@@ -129,7 +122,6 @@ const ChatWindow: React.FC = () => {
 
   const handleMessage = async (message: string) => {
     setOnQuestion(true);
-    console.log("handleMessage", onQuestion);
     let input = [
         {
           role: 'system',
@@ -149,7 +141,7 @@ const ChatWindow: React.FC = () => {
       return output.messages[output.messages.length - 1].content as string;
     } catch (error) {
       setOnQuestion(false);
-      return `Có lỗi xảy ra khi xử lý tin nhắn. Vui lòng thử lại. ${error}`;
+      return `An error occurred while processing the message. Please try again. ${error}`;
     }
   }
 
@@ -159,7 +151,7 @@ const ChatWindow: React.FC = () => {
     setIsProcessing(true);
     setInputValue('');
 
-    // Tạo tin nhắn mới với agentConversation
+    // Create new message with agentConversation
     const newMessage: ChatMessage = {
       type: 'human',
       message: userMessage,
@@ -171,7 +163,7 @@ const ChatWindow: React.FC = () => {
     if (!output) {
       const errorMessage: ChatMessage = {
         type: 'agent',
-        message: 'Lỗi khi xử lý tin nhắn. Vui lòng thử lại.'
+        message: 'Error processing message. Please try again.'
       };
       setMessages(prev => [...prev, errorMessage]);
       setIsProcessing(false);
