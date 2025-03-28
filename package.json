@@ -20,7 +20,7 @@
 		"@mui/icons-material": "^6.4.8",
 		"@mui/material": "^6.4.8",
 		"@scrypt-inc/ecpair": "^3.0.5",
-		"@scrypt-inc/scrypt-ts-btc": "^0.2.8",
+		"@scrypt-inc/scrypt-ts-btc": "0.2.9-beta.15",
 		"@scrypt-inc/scrypt-ts-transpiler-btc": "^0.2.8",
 		"@ts-drp/network": "^0.10.0",
 		"@ts-drp/node": "^0.10.0",

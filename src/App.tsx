@@ -17,7 +17,7 @@ import { Runnable } from "@langchain/core/runnables";
 import { BaseLanguageModelInput } from "@langchain/core/language_models/base";
 import { AIMessageChunk } from "@langchain/core/messages";
 import { deploy } from "@scrypt-inc/scrypt-ts-btc";
-import { main } from "./contracts/deploy";
+import { main, withdraw } from "./contracts/deploy";
 
 const theme = createTheme({
 	palette: {
@@ -95,6 +95,15 @@ function App() {
 					}}
 				>
 					Deploy
+				</Button>
+				<Button
+					variant="contained"
+					color="primary"
+					onClick={async () => {
+						await withdraw();
+					}}
+				>
+					Withdraw
 				</Button>
 				<Grid2 container spacing={2} sx={{ height: "100%" }}>
 					<Grid2 size={{ md: 3 }}>

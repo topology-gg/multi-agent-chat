@@ -36,8 +36,8 @@ importers:
         specifier: ^3.0.5
         version: 3.0.5(typescript@5.7.3)
       '@scrypt-inc/scrypt-ts-btc':
-        specifier: ^0.2.8
-        version: 0.2.8(typescript@5.7.3)
+        specifier: 0.2.9-beta.15
+        version: 0.2.9-beta.15(typescript@5.7.3)
       '@scrypt-inc/scrypt-ts-transpiler-btc':
         specifier: ^0.2.8
         version: 0.2.8
@@ -1768,6 +1768,10 @@ packages:
 
   '@scrypt-inc/scrypt-ts-btc@0.2.8':
     resolution: {integrity: sha512-HmzuFsm2GiaLoAyRbmSY3+QFnhlHZCRpTmazc8ApPuj6uy09GIJThAMiyNlzzVGWJHDJoZ4mh14MbnHtAEfT1g==}
+    engines: {node: '>=20.0.0'}
+
+  '@scrypt-inc/scrypt-ts-btc@0.2.9-beta.15':
+    resolution: {integrity: sha512-WdR2yp7jEf/ob7uBlpq0LyNkpsxJ1UkLkZxS9/ENQwrlajYbnKGdfPdUDyCCqd4NKL3BBYPByRfd+uj124aWnA==}
     engines: {node: '>=20.0.0'}
 
   '@scrypt-inc/scrypt-ts-transpiler-btc@0.2.8':
@@ -7299,7 +7303,7 @@ snapshots:
       - encoding
       - typescript
 
-  '@scrypt-inc/scrypt-ts-btc@0.2.8(typescript@5.7.3)':
+  '@scrypt-inc/scrypt-ts-btc@0.2.9-beta.15(typescript@5.7.3)':
     dependencies:
       '@bitcoinerlab/secp256k1': 1.2.0
       '@cmdcode/tapscript': 1.4.6

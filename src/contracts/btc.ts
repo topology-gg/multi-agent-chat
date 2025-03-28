@@ -48,6 +48,6 @@ export class HTLC extends SmartContract {
 	@method()
 	public cancel(aliceSig: Sig) {
 		// Verify Alices signature.
-		assert(this.checkSig(aliceSig, this.alicePubKey));
+		assert(this.checkSig(aliceSig, this.alicePubKey), "Invalid signature.");
 	}
 }
