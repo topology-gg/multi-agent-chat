@@ -40,13 +40,13 @@ export class HTLC extends SmartContract {
 	public unlock(x: ByteString, bobSig: Sig) {
 		// Check if H(x) == this.hashX
 		assert(sha256(x) === this.hashX, "Invalid secret.");
-
-		// Verify Bobs signature.
-		assert(this.checkSig(bobSig, this.bobPubKey));
 	}
 
 	@method()
 	public cancel(aliceSig: Sig) {
+		// Check if the timeout has passed
+		assert(this.cltv(this.timeout), "Timeout has not passed.");
+
 		// Verify Alices signature.
 		assert(this.checkSig(aliceSig, this.alicePubKey), "Invalid signature.");
 	}

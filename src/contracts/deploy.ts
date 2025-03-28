@@ -34,7 +34,7 @@ const x = toByteString(
 	"f00cfd8df5f92d5e94d1ecbd9b427afd14e03f8a3292ca4128cd59ef7b9643bc",
 );
 const xHash = sha256(x);
-const lockTimeMin = 1673510000n;
+const lockTimeMin = 1743168090n;
 
 const deployBTC = async (
 	bobPubKey: bsv.PublicKey,
@@ -76,7 +76,7 @@ export async function main() {
 
 export async function withdraw() {
 	const txId =
-		"e44db5e0b66e3f0e08b7cb0e1d4752c54a235e58c3339ad8fdb6ea1c969a6d1e";
+		"3eebbd765714e8d9772422c0b162ed84c7e4f18f3832323fca75d4a9c3eb2459";
 	const restoredCovenant = Covenant.createCovenant(
 		new HTLC(
 			PubKey(toXOnly(await signer.getPublicKey(), true)),
@@ -101,6 +101,44 @@ export async function withdraw() {
 		const tx = await call(signer, provider, restoredCovenant, {
 			invokeMethod: (contract: HTLC, psbt: ExtPsbt) => {
 				contract.cancel(psbt.getSig(0, { address: address }));
+			},
+		});
+		console.log("HTLC contract deployed: ", tx.toHex());
+	} catch (error) {
+		console.log(error);
+	}
+}
+
+export async function unlock(secret: string) {
+	const txId =
+		"3eebbd765714e8d9772422c0b162ed84c7e4f18f3832323fca75d4a9c3eb2459";
+	const restoredCovenant = Covenant.createCovenant(
+		new HTLC(
+			PubKey(toXOnly(await signer.getPublicKey(), true)),
+			PubKey(toXOnly(bobPubKey.toHex(), true)),
+			xHash,
+			lockTimeMin,
+		),
+		{
+			network: "btc-signet",
+		},
+	);
+	const provider = getDefaultProvider();
+	const utxos = await provider.getUtxos(restoredCovenant.address);
+	const tx = utxos.find((utxo) => utxo.txId === txId);
+	if (!tx) {
+		throw new Error("TX not found");
+	}
+	restoredCovenant.bindToUtxo(tx);
+
+	const address = await signer.getAddress();
+	try {
+		const tx = await call(signer, provider, restoredCovenant, {
+			invokeMethod: (contract: HTLC, psbt: ExtPsbt) => {
+				contract.unlock(
+					toByteString(secret),
+					psbt.getSig(0, { address: address }),
+				);
 			},
 		});
 		console.log("HTLC contract deployed: ", tx.toHex());
