@@ -17,7 +17,6 @@ import type { DRPNetworkNode } from '@ts-drp/network';
 import HashedTimelockERC20 from '../../../../contracts/src/artifacts/src/htlc.sol/HashedTimelockERC20.json'
 import Token from '../../../../contracts/src/artifacts/src/erc20.sol/MyToken.json'
 import { WriteContractMutateAsync } from 'wagmi/query';
-import * as crypto from "crypto";
 
 export class DRPManager {
   private readonly _node: DRPNode;
@@ -153,11 +152,6 @@ function composeContentQuestioner(content: string): string {
 
 function composeContentAnswerer(content: string): string {
   return `Hi, i will answer your question. My answer to your question is ${content}.`;
-}
-
-function SHA256(secretKey: string): string {
-  const buffer = Buffer.from(secretKey, 'utf8');
-  return '0x' + crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
 const askDRPChatSchema = z.object({

@@ -1,6 +1,21 @@
 {
-	"dependencies": {
-		"@wagmi/core": "^2.16.7",
-		"viem": "2.x"
-	}
-}
+  "name": "drp-agent-ui",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "contracts"
+  ],
+  "scripts": {
+    "install:all": "pnpm install -r",
+    "dev": "cd frontend && pnpm run dev",
+    "build": "cd frontend && pnpm run build",
+    "preview": "cd frontend && pnpm run preview",
+    "contracts:compile": "cd contracts && pnpm run compile",
+    "contracts:deploy": "cd contracts && pnpm run deploy",
+    "contracts:test": "cd contracts && pnpm run test",
+    "contracts:node": "cd contracts && pnpm run node"
+  },
+
+  "packageManager": "pnpm@8.15.4"
+} 
