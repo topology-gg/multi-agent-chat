@@ -1,15 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { DRPObject } from '@ts-drp/object';
 import { ChatOpenAI } from '@langchain/openai';
-import { answerDRPChatTool, askDRPChatTool, queryAnswerDRPChatTool, queryConversationDRPChatTool } from './ai-chat/tools';
+import { answerDRPChatTool, askDRPChatTool, newHTLCContractAction, queryAnswerDRPChatTool, queryConversationDRPChatTool } from './ai-chat/tools';
 import { DRPNode } from '@ts-drp/node';
 import { DRPNetworkNodeConfig } from '@ts-drp/types';
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { CompiledStateGraph } from '@langchain/langgraph/web';
 import { ChatDRP } from './ai-chat/chat.drp';
+import { useWriteContract } from 'wagmi'
 
 const networkConfig: DRPNetworkNodeConfig = {
     listen_addresses: ['/p2p-circuit', '/webrtc'],
+    log_config: {
+      level: 'silent'
+    }
 };
 
 interface DRPAgentContextType {
@@ -33,12 +37,16 @@ export const DRPAgentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [chatObject, setChatObject] = useState<DRPObject | null>(null);
   const [drpNode, setDrpNode] = useState<DRPNode | null>(null);
   const [agent, setAgent] = useState<CompiledStateGraph<any, any, any, any, any, any> | null>(null);
+  const { writeContractAsync } = useWriteContract()
 
   useEffect(() => {
     let mounted = true;
 
     const drpNode = new DRPNode({
         network_config: networkConfig,
+        log_config: {
+          level: 'silent'
+        }
     });
 
     drpNode.start().then(async () => {
@@ -60,12 +68,14 @@ export const DRPAgentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     if (!drpNode) return;
     if (!chatObject) return;
+    if (!writeContractAsync) return;
 
     const tools = [
       askDRPChatTool(chatObject),
       answerDRPChatTool(chatObject),
       queryAnswerDRPChatTool(chatObject),
       queryConversationDRPChatTool(chatObject),
+      newHTLCContractAction(writeContractAsync)
     ];
     const llm = new ChatOpenAI({
       model: import.meta.env.VITE_OPENAI_MODEL,
@@ -79,7 +89,7 @@ export const DRPAgentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
 
     setAgent(agent);
-  }, [drpNode, chatObject]);
+  }, [drpNode, chatObject, writeContractAsync]);
 
   return (
     <DRPAgentContext.Provider value={{ drpNode, chatObject, agent, setChatObject }}>

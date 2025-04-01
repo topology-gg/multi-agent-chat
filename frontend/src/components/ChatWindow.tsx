@@ -22,7 +22,7 @@ const ChatWindow: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [onQuestion, setOnQuestion] = useState(false);
-
+ 
   const clearMessages = () => {
     setMessages([]);
   };

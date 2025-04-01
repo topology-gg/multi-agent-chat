@@ -4,6 +4,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import { compressPeerId } from '../utils/utils';
 import { useDRP } from '../contexts/DRPAgentContext';
 import { ChatDRP } from '../contexts/ai-chat/chat.drp';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 interface PeerList {
   id: string;
@@ -141,6 +142,8 @@ const LocalDRPStatus: React.FC = () => {
           </Typography>
         ))}
       </Box>
+
+      <ConnectButton />
     </Paper>
   );
 };
