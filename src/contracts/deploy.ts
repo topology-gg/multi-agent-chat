@@ -61,7 +61,7 @@ const deployBTC = async (
 			provider,
 			covenant,
 			"btc-signet",
-			100000,
+			4000,
 		);
 		console.log("HTLC contract deployed: ", deployTx.toHex());
 		return deployTx;
@@ -70,19 +70,21 @@ const deployBTC = async (
 	}
 };
 
-export async function main() {
+export async function main(duration: number) {
+	const lockTimeMin = BigInt(Math.floor(Date.now() / 1000) + duration);
+	console.log("lockTimeMin", lockTimeMin);
 	const htlcDeployTx = await deployBTC(bobPubKey, xHash, lockTimeMin);
 }
 
 export async function withdraw() {
 	const txId =
-		"3eebbd765714e8d9772422c0b162ed84c7e4f18f3832323fca75d4a9c3eb2459";
+		"1f698782b8f37e1b0ab1f88d620fc911e3815b41b2aebd70fd9331a674175c6b";
 	const restoredCovenant = Covenant.createCovenant(
 		new HTLC(
 			PubKey(toXOnly(await signer.getPublicKey(), true)),
 			PubKey(toXOnly(bobPubKey.toHex(), true)),
 			xHash,
-			lockTimeMin,
+			1743238881n,
 		),
 		{
 			network: "btc-signet",
@@ -91,6 +93,7 @@ export async function withdraw() {
 	const provider = getDefaultProvider();
 	const utxos = await provider.getUtxos(restoredCovenant.address);
 	const tx = utxos.find((utxo) => utxo.txId === txId);
+	console.log(utxos);
 	if (!tx) {
 		throw new Error("TX not found");
 	}
@@ -111,7 +114,7 @@ export async function withdraw() {
 
 export async function unlock(secret: string) {
 	const txId =
-		"3eebbd765714e8d9772422c0b162ed84c7e4f18f3832323fca75d4a9c3eb2459";
+		"66fc82f7bef4d43f38908cfc5a53e35e7ddee7bbc7ca1cbdf44d6d72c5b743fc";
 	const restoredCovenant = Covenant.createCovenant(
 		new HTLC(
 			PubKey(toXOnly(await signer.getPublicKey(), true)),
@@ -126,6 +129,8 @@ export async function unlock(secret: string) {
 	const provider = getDefaultProvider();
 	const utxos = await provider.getUtxos(restoredCovenant.address);
 	const tx = utxos.find((utxo) => utxo.txId === txId);
+	console.log(utxos);
+
 	if (!tx) {
 		throw new Error("TX not found");
 	}

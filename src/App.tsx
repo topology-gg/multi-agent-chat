@@ -90,7 +90,7 @@ function App() {
 					variant="contained"
 					color="primary"
 					onClick={async () => {
-						await main();
+						await main(30);
 						console.log("deployed");
 					}}
 				>
