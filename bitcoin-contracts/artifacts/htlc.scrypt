@@ -5,7 +5,7 @@ contract HTLC {
   const auto hashX;
   const int timeout;
   public function unlock(auto x, auto bobSig) {
-    require( == this.hashX);
+    require(sha256(x) == this.hashX);
     require(checkSig(bobSig, this.bobPubKey));
   }
   public function cancel(auto aliceSig) {

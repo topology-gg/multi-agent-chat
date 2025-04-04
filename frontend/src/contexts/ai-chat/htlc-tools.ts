@@ -225,7 +225,7 @@ export const withdrawBTC_HTLCAction = (
         console.log(bobPubKey.toAddress().toString());
         const restoredCovenant = Covenant.createCovenant(
           new HTLC(
-            PubKey(toXOnly(await signer.getPublicKey(), true)),
+            PubKey("c8f705e1a4774a9abb80144ed468f4c98caa19e7af16be8e3e6598f48165b0f3"),
             PubKey(toXOnly(bobPubKey.toHex(), true)),
             hashLock,
             BigInt(timeLock) as Int32,
