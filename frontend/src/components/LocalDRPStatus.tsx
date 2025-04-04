@@ -5,6 +5,7 @@ import { compressPeerId } from '../utils/utils';
 import { useDRP } from '../contexts/DRPAgentContext';
 import { ChatDRP } from '../contexts/ai-chat/chat.drp';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { UniSatConnect } from './UniSatConnect';
 
 interface PeerList {
   id: string;
@@ -143,7 +144,10 @@ const LocalDRPStatus: React.FC = () => {
         ))}
       </Box>
 
-      <ConnectButton />
+      <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <ConnectButton />
+        <UniSatConnect />
+      </Box>
     </Paper>
   );
 };

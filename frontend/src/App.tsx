@@ -43,7 +43,6 @@ function App() {
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
-
   );
 }
 

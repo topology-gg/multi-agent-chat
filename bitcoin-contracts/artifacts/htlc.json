@@ -1,0 +1,63 @@
+{
+    "version": 9,
+    "compilerVersion": "1.20.0+commit.693498a",
+    "contract": "HTLC",
+    "md5": "761fb4b78c43db0a9ad5abe9d3aab3ce",
+    "structs": [],
+    "library": [],
+    "alias": [],
+    "abi": [
+        {
+            "type": "function",
+            "name": "unlock",
+            "index": 0,
+            "params": [
+                {
+                    "name": "x",
+                    "type": "bytes"
+                },
+                {
+                    "name": "bobSig",
+                    "type": "Sig"
+                }
+            ]
+        },
+        {
+            "type": "function",
+            "name": "cancel",
+            "index": 1,
+            "params": [
+                {
+                    "name": "aliceSig",
+                    "type": "Sig"
+                }
+            ]
+        },
+        {
+            "type": "constructor",
+            "params": [
+                {
+                    "name": "alicePubKey",
+                    "type": "PubKey"
+                },
+                {
+                    "name": "bobPubKey",
+                    "type": "PubKey"
+                },
+                {
+                    "name": "hashX",
+                    "type": "Sha256"
+                },
+                {
+                    "name": "timeout",
+                    "type": "int"
+                }
+            ]
+        }
+    ],
+    "stateProps": [],
+    "buildType": "debug",
+    "file": "../btc.scrypt",
+    "hex": "00000000<alicePubKey><bobPubKey><hashX><timeout>5379587a75577a577a577a577a577a577a577a5279577a75567a567a567a567a567a567a78567a757171557a76557a75547a547a547a547a6d6d54790087635679a852798855795379ac6b6d6d6d6c7767547951876355795479ac6b6d6d6d6c67006868",
+    "sourceMapFile": ""
+}

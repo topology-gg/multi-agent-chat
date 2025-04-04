@@ -2,8 +2,9 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Box, Paper, TextField, IconButton } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import ChatMessage from './ChatMessage';
-import { answerQuestionPrompt, startConversationPrompt } from '../contexts/ai-chat/prompts';
+import { answerQuestionPrompt, initialPrompt, startConversationPrompt } from '../contexts/ai-chat/prompts';
 import { useDRP } from '../contexts/DRPAgentContext';
+import { useAccount } from 'wagmi';
 
 interface ChatMessage {
   type: 'human' | 'agent';
@@ -22,6 +23,8 @@ const ChatWindow: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [onQuestion, setOnQuestion] = useState(false);
+  const { address } = useAccount();
+  const processingRef = useRef(false);
  
   const clearMessages = () => {
     setMessages([]);
@@ -48,10 +51,17 @@ const ChatWindow: React.FC = () => {
     }
 
     chatObject?.subscribe((_object, _origin, vertices) => {
-      if (vertices.some(v => v.peerId !== drpNode?.networkNode.peerId)) {
-        autonomousMessage().catch(error => {
-          console.error("Error in autonomous message handler:", error);
-        });
+      // Only process if not already processing and message is from another peer
+      if (!processingRef.current && 
+          vertices.some(v => v.peerId !== drpNode?.networkNode.peerId)) {
+        processingRef.current = true;
+        autonomousMessage()
+          .catch(error => {
+            console.error("Error in autonomous message handler:", error);
+          })
+          .finally(() => {
+            processingRef.current = false;
+          });
       }
       if (onQuestion) {
         vertices.forEach(v => {
@@ -101,10 +111,22 @@ const ChatWindow: React.FC = () => {
           content: answerQuestionPrompt,
         },
         {
+          role: 'system',
+          content: initialPrompt,
+        },
+        {
+          role: 'system',
+          content: `Current secret key is ${localStorage.getItem('secretKey')}. Use it as secret key when withdraw the ETH HTLC`,
+        },
+        {
           role: 'user',
-          content: 'Use queryConversationDRPChatTool to get the question from other agents.',
+          content: 'Process all unresponded messages from one queryConversationDRPChatTool call.',
         }
       ];      
+      setMessages(prev => [...prev, {
+        type: 'agent',
+        message: 'Processing new messages...',
+      }]);
       const output = await agent.invoke({ messages: input });
       if (!output) {
         throw new Error('No output from agent');
@@ -128,12 +150,21 @@ const ChatWindow: React.FC = () => {
           content: startConversationPrompt,
         },
         {
+          role: 'system',
+          content: initialPrompt,
+        },
+        {
+          role: 'system',
+          content: `User ETH address is ${address}. Use it as receiver if needed.`,
+        },
+        {
           role: 'user',
           content: message,
         },
       ];
     try {
       const output = await agent?.invoke({ messages: input });
+      console.log(output);
       if (!output) {
         throw new Error('No output from agent');
       }
