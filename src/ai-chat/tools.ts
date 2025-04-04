@@ -18,7 +18,7 @@ import type { DRPNetworkNode } from '@ts-drp/network';
 export class DRPManager {
   private readonly _node: DRPNode;
   private readonly logConfig: LoggerOptions = {
-    // level: 'silent',
+    level: 'silent',
   };
   private readonly keychainConfig: KeychainOptions = {};
   private readonly networkConfig: DRPNetworkNodeConfig = {

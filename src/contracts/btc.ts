@@ -46,12 +46,6 @@ export class HTLC extends SmartContract {
 
 	@method()
 	public cancel(aliceSig: Sig) {
-		// Check if the timeout has passed
-		assert(
-			Math.floor(Date.now() / 1000) >= this.timeout,
-			"Timeout has not passed.",
-		);
-
 		// Verify Alices signature.
 		assert(this.checkSig(aliceSig, this.alicePubKey), "Invalid signature.");
 	}

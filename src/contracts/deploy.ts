@@ -41,6 +41,7 @@ const deployBTC = async (
 	xHash: Sha256,
 	lockTimeMin: bigint,
 ) => {
+	console.log("signer public key", toXOnly(await signer.getPublicKey(), true));
 	const covenant = Covenant.createCovenant(
 		new HTLC(
 			PubKey(toXOnly(await signer.getPublicKey(), true)),
@@ -63,7 +64,7 @@ const deployBTC = async (
 			"btc-signet",
 			4000,
 		);
-		console.log("HTLC contract deployed: ", deployTx.toHex());
+		console.log("HTLC contract deployed: ", deployTx.extractTransaction().getId());
 		return deployTx;
 	} catch (error) {
 		console.log(error);
@@ -78,13 +79,13 @@ export async function main(duration: number) {
 
 export async function withdraw() {
 	const txId =
-		"1f698782b8f37e1b0ab1f88d620fc911e3815b41b2aebd70fd9331a674175c6b";
+		"105bd664f81899ddfc41a81d3b30617d636000cfb6427cd53372324d2519645a";
 	const restoredCovenant = Covenant.createCovenant(
 		new HTLC(
 			PubKey(toXOnly(await signer.getPublicKey(), true)),
 			PubKey(toXOnly(bobPubKey.toHex(), true)),
 			xHash,
-			1743238881n,
+			1743762864n,
 		),
 		{
 			network: "btc-signet",
@@ -106,7 +107,7 @@ export async function withdraw() {
 				contract.cancel(psbt.getSig(0, { address: address }));
 			},
 		});
-		console.log("HTLC contract deployed: ", tx.toHex());
+		console.log("HTLC contract deployed: ", tx.extractTransaction().getId());
 	} catch (error) {
 		console.log(error);
 	}
@@ -114,22 +115,32 @@ export async function withdraw() {
 
 export async function unlock(secret: string) {
 	const txId =
-		"66fc82f7bef4d43f38908cfc5a53e35e7ddee7bbc7ca1cbdf44d6d72c5b743fc";
+		"fb630bc9a7afcdfa175101a00560f8a358dafe9fd61f631b00ef724347707a4e";
+	
+	// Verify secret hash matches
+	const secretBytes = toByteString(secret);
+	const calculatedHash = sha256(secretBytes);
+	if (calculatedHash !== xHash) {
+		throw new Error("Invalid secret - hash does not match");
+	}
+
 	const restoredCovenant = Covenant.createCovenant(
 		new HTLC(
-			PubKey(toXOnly(await signer.getPublicKey(), true)),
+			PubKey("c8f705e1a4774a9abb80144ed468f4c98caa19e7af16be8e3e6598f48165b0f3"),
 			PubKey(toXOnly(bobPubKey.toHex(), true)),
 			xHash,
-			lockTimeMin,
+			1743763941n,
 		),
 		{
 			network: "btc-signet",
 		},
 	);
+	
 	const provider = getDefaultProvider();
 	const utxos = await provider.getUtxos(restoredCovenant.address);
 	const tx = utxos.find((utxo) => utxo.txId === txId);
-	console.log(utxos);
+	console.log("Contract UTXOs:", utxos);
+	console.log("Using UTXO:", tx);
 
 	if (!tx) {
 		throw new Error("TX not found");
@@ -137,17 +148,23 @@ export async function unlock(secret: string) {
 	restoredCovenant.bindToUtxo(tx);
 
 	const address = await signer.getAddress();
+	console.log("Signing with address:", address);
+	
 	try {
 		const tx = await call(signer, provider, restoredCovenant, {
 			invokeMethod: (contract: HTLC, psbt: ExtPsbt) => {
-				contract.unlock(
-					toByteString(secret),
-					psbt.getSig(0, { address: address }),
-				);
+				const sig = psbt.getSig(0, { address });
+				if (!sig) {
+					throw new Error("Failed to generate signature");
+				}
+				console.log("Using signature:", sig);
+				contract.unlock(secretBytes, sig);
 			},
 		});
-		console.log("HTLC contract deployed: ", tx.toHex());
+		console.log("Transaction hex:", tx.toHex());
+		return tx;
 	} catch (error) {
-		console.log(error);
+		console.error("Detailed error:", error);
+		throw error;
 	}
 }
