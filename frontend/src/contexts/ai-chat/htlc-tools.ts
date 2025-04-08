@@ -5,7 +5,6 @@ import Token from '../../../../eth-contracts/src/artifacts/src/erc20.sol/MyToken
 import { WriteContractMutateAsync } from 'wagmi/query';
 import { HTLC } from '../../../../bitcoin-contracts/src/contracts/htlc';
 import {
-	call,
 	Covenant,
 	deploy,
 	ExtPsbt,
@@ -25,7 +24,11 @@ import { type DRPObject } from "@ts-drp/object";
 import { ChatDRP } from "./chat.drp";
 import { ethers } from 'ethers';
 
-
+const packedSecretKey = (secretKey: string): string => {
+  const secretKeyBytes = ethers.toUtf8Bytes(secretKey);
+  const bytes32Value = ethers.zeroPadValue(secretKeyBytes, 32);
+  return ethers.solidityPacked(['bytes32'], [bytes32Value]);
+};
 
 const bobPrivKey = bsv.PrivateKey.fromWIF(
 	"cUhLQnBVuhpErA6vPyej9adhFAXiS3RPBxRdAc5pcAqPK9k4yx7s",
@@ -35,7 +38,6 @@ const bobPubKey = bobPrivKey.publicKey;
 const newBTC_HTLCSchema = z.object({
   receiver: z.string().describe('Address of the receiver'),
   secretKey: z.string().describe('Secret key'),
-  timelock: z.number().describe('Time lock'),
   amount: z.number().describe('Amount of token'),
 });
 
@@ -52,7 +54,7 @@ export const newBTC_HTLCAction = (
         const timeLock = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
         try {
             HTLC.loadArtifact(artifact);
-            const hashlock = sha256(toByteString(secretKey, true));
+            const hashlock = Sha256(ethers.sha256(packedSecretKey(secretKey)).slice(2));
             const covenant = Covenant.createCovenant(
             new HTLC(
                 PubKey(toXOnly(`${await signer.getPublicKey()}`, true)),
@@ -76,12 +78,21 @@ export const newBTC_HTLCAction = (
         (chatObject.drp as ChatDRP).newMessage({
           peerId: chatObject.hashGraph.peerId,
           messageId: "",
-          content: `Bitcoin HTLC contract deployed with transaction id ${deployTx.extractTransaction().getId()}, hashlock: ${hashlock.toString()}, timelock: ${timeLock}, amount: ${amount}. Please include receiver as ${receiver}`,
+          content: `I have deployed a BTC HTLC contract with transaction id ${deployTx.extractTransaction().getId()}. As the ETH Responder, you should:
+          Create ONE ETH HTLC contract with:
+          - Receiver: ${receiver}
+          - Hashlock: ${hashlock}
+          - Timelock: ${timeLock}
+          - Amount: ${amount}`,
           end: false,
           targetPeerId: 'Everyone',
         });
         return {
-          message: `Bitcoin HTLC contract deployed with transaction id ${deployTx.extractTransaction().getId()}, hashlock: ${hashlock.toString()}, timelock: ${timeLock}, amount: ${amount}. Please wait for the ETH HTLC be deployed by other agents. Then you can withdraw the ETH HTLC`,
+          next_instruction: `As the BTC Initiator, you should:
+1. Store your secret key: ${secretKey}
+2. Wait for the ETH HTLC contract to be deployed
+3. Once deployed, you will receive a notification with the contract address
+4. STOP your workflow`,
         };
       } catch (error) {
         console.error('Error deploying contract:', error);
@@ -97,6 +108,7 @@ const newHTLCSchema = z.object({
   hashlock: z.string().describe('Hash lock'),
   timelock: z.number().describe('Time lock'),
   amount: z.number().describe('Amount of token'),
+  parentMessageId: z.string().describe('Parent message id'),
 });
 
 export const newETH_HTLCAction = (
@@ -113,24 +125,17 @@ export const newETH_HTLCAction = (
       hashlock,
       timelock,
       amount,
+      parentMessageId,
     }: {
       receiver: string;
       hashlock: string;
       timelock: number;
       amount: number;
+      parentMessageId: string;
     }
   ) => {
     try {
-        await writeContractAsync({
-          abi: Token.abi,
-          functionName: 'approve',
-          address: '0x3F64d909A1f96FBb770B43AF858C2f64E78084AF',
-          args: [
-            '0x7C819F14e1B52c4984F24cfB9E95dC98969a4e61',
-            amount,
-          ], 
-        });
-        const contractAddress = await writeContractAsync({
+        const txHash = await writeContractAsync({
           abi: HashedTimelockERC20.abi,
           functionName: 'newContract',
           address: '0x7C819F14e1B52c4984F24cfB9E95dC98969a4e61',
@@ -142,16 +147,48 @@ export const newETH_HTLCAction = (
             amount,
           ],
         });
+
+        // Wait for transaction to be mined
+        const provider = new ethers.JsonRpcProvider(import.meta.env.VITE_PUBLIC_ETH_RPC_URL);
+        const receipt = await provider.waitForTransaction(txHash);
+        
+        if (!receipt) {
+          throw new Error('Transaction receipt not found');
+        }
+        
+        // Get contract address from event logs
+        const contractInterface = new ethers.Interface(HashedTimelockERC20.abi);
+        const event = receipt.logs.find(log => {
+          try {
+            return contractInterface.parseLog(log)?.name === 'HTLCERC20New';
+          } catch {
+            return false;
+          }
+        });
+        
+        if (!event) {
+          throw new Error('Contract creation event not found');
+        }
+        
+        const contractAddress = contractInterface.parseLog(event)?.args[0];
+        console.log(contractAddress);
         (chatObject.drp as ChatDRP).newMessage({
           peerId: chatObject.hashGraph.peerId,
           messageId: "",
-          content: `ETH HTLC contract deployed with contract address ${contractAddress}. Please withdraw the fund from ETH with your secret key!`,
+          content: `I have deployed an ETH HTLC contract with address ${contractAddress}. As the BTC Initiator, you should:
+1. Withdraw the ETH HTLC using your secret key
+2. After withdrawal, I will withdraw the BTC HTLC`,
           end: false,
           targetPeerId: 'Everyone',
+          parentMessageId,
         });
         return {
           contractAddress: contractAddress,
-          message: `Contract deployed with contract address ${contractAddress}`,
+          next_instruction: `As the ETH Responder, you should:
+1. Store the contract address: ${contractAddress}
+2. Wait for the BTC Initiator to withdraw the ETH HTLC
+3. Once withdrawn, you will receive a notification with the secret key
+4. STOP your workflow`,
         };
     } catch (error) {
       console.error('Error deploying contract:', error);
@@ -163,6 +200,7 @@ export const newETH_HTLCAction = (
 const withdrawETH_HTLCSchema = z.object({
   contractAddress: z.string().describe('Address of the contract'),
   secretKey: z.string().describe('Secret key'),
+  parentMessageId: z.string().describe('Parent message id'),
 });
 
 export const withdrawETH_HTLCAction = (
@@ -173,28 +211,35 @@ export const withdrawETH_HTLCAction = (
     name: 'withdrawETH_HTLCAction',
     description: 'A tool for withdrawing a contract',
     schema: withdrawETH_HTLCSchema,
-    func: async ({ contractAddress, secretKey }: { contractAddress: string; secretKey: string }) => {
-      try {
-        // Convert secretKey to bytes32 using ethers v6
-        const hashLock = sha256(toByteString(secretKey, true));
+    func: async ({ contractAddress, secretKey, parentMessageId }: { contractAddress: string; secretKey: string; parentMessageId: string }) => {
+      console.log('withdrawETH_HTLCAction', contractAddress, secretKey, parentMessageId);
+      try {        
         await writeContractAsync({
           abi: HashedTimelockERC20.abi,
           functionName: 'withdraw',
           address: "0x7C819F14e1B52c4984F24cfB9E95dC98969a4e61",
           args: [
             contractAddress,
-            `0x${hashLock.toString()}`,
+            packedSecretKey(secretKey),
           ],
         });
         (chatObject.drp as ChatDRP).newMessage({
           peerId: chatObject.hashGraph.peerId,
           messageId: "",
-          content: `ETH HTLC contract withdrawn with contract address ${contractAddress} and secret key ${secretKey}. Please use secret key to withdraw BTC from HTLC.`,
+          content: `I have withdrawn the ETH HTLC contract with address ${contractAddress} using secret key ${secretKey}. As the ETH Responder, you should:
+1. Use this secret key to withdraw the BTC HTLC
+2. This is the final step in the process`,
           end: false,
           targetPeerId: 'Everyone',
+          parentMessageId,
         });
         return {
-          message: `ETH HTLC contract withdrawn with contract address ${contractAddress} and secret key ${secretKey}. You shoud end your progress.`,
+          next_instruction: `As the BTC Initiator, you should:
+1. End your workflow
+2. Do NOT create any new ETH HTLC contracts
+3. The ETH Responder will now withdraw the BTC HTLC
+4. The atomic swap will be complete after BTC withdrawal
+5. STOP your workflow`,
         };
       } catch (error) {
         console.error('Error withdrawing contract:', error);
@@ -208,6 +253,7 @@ const withdrawBTC_HTLCSchema = z.object({
   secretKey: z.string().describe('Secret key'),
   timeLock: z.number().describe('Time lock'),
   txId: z.string().describe('Transaction id'),
+  parentMessageId: z.string().describe('Parent message id'),
 });
 
 export const withdrawBTC_HTLCAction = (
@@ -218,16 +264,15 @@ export const withdrawBTC_HTLCAction = (
     name: 'withdrawBTC_HTLCAction',
     description: 'A tool for withdrawing BTC from HTLC using secret key',
     schema: withdrawBTC_HTLCSchema,
-    func: async ({ secretKey, timeLock, txId }: { secretKey: string; timeLock: number; txId: string }) => {
+    func: async ({ secretKey, timeLock, txId, parentMessageId }: { secretKey: string; timeLock: number; txId: string; parentMessageId: string }) => {
       try {
         HTLC.loadArtifact(artifact);
-        const hashLock = sha256(toByteString(secretKey, true));
-        console.log(bobPubKey.toAddress().toString());
+        const hashlock = Sha256(ethers.sha256(packedSecretKey(secretKey)).slice(2));
         const restoredCovenant = Covenant.createCovenant(
           new HTLC(
             PubKey("c8f705e1a4774a9abb80144ed468f4c98caa19e7af16be8e3e6598f48165b0f3"),
             PubKey(toXOnly(bobPubKey.toHex(), true)),
-            hashLock,
+            hashlock,
             BigInt(timeLock) as Int32,
           ),
           {
@@ -244,19 +289,23 @@ export const withdrawBTC_HTLCAction = (
         const address = await signer.getAddress();
         const callTx = await call(signer, provider, restoredCovenant, {
           invokeMethod: (contract: HTLC, psbt: ExtPsbt) => {
-            contract.unlock(toByteString(secretKey, true), psbt.getSig(0, { address: address }));
+            contract.unlock(toByteString(packedSecretKey(secretKey).slice(2), false), psbt.getSig(0, { address: address }));
           },
         });
-        console.log(callTx);
         (chatObject.drp as ChatDRP).newMessage({
           peerId: chatObject.hashGraph.peerId,
           messageId: "",
-          content: `BTC HTLC contract withdrawn withtransaction ${txId}. End of conversation.`,
+          content: `I have withdrawn the BTC HTLC contract with transaction ${txId}. The atomic swap is now complete.`,
           end: true,
           targetPeerId: 'Everyone',
+          parentMessageId,
         });
         return {
-          message: `BTC HTLC contract withdrawn with transaction ${txId}. End of conversation.`,
+          next_instruction: `As the ETH Responder, you should:
+1. End your workflow
+2. The atomic swap is now complete
+3. All funds have been successfully transferred
+4. STOP your workflow`,
         };
       } catch (error) {
         console.error('Error withdrawing contract:', error);

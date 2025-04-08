@@ -135,11 +135,12 @@ function composeState(conversation: Message[], chatObject: DRPObject): string {
     } = chatObject;
     const isRemote = message.peerId !== peerId;
     if (isRemote) {
-      text += `Remote agent ${message.peerId}:\n\nMessage id: ${message.messageId}, content: ${message.content}\n\n`;
+      text += `## Remote agent with peerId ${message.peerId}:\n\nMessage id: ${message.messageId}, content: ${message.content}\n\n`;
     } else {
-      text += `Local agent ${peerId}:\n\nMessage id: ${message.messageId}, content: ${message.content}\n\n`;
+      text += `## Local agent with peerId ${peerId}:\n\nMessage id: ${message.messageId}, content: ${message.content}\n\n`;
     }
   }
+  text += "**Note**: Only the last message is the actual notification to process. All previous messages are for context only. Don't take action from previous messages.";
   return text;
 }
 
@@ -264,19 +265,16 @@ export const queryConversationDRPChatTool = (
     schema: {},
     func: async () => {
       console.log((chatObject.drp as ChatDRP).messages)
-      const conversations = (chatObject.drp as ChatDRP).query_conversationsNotFromPeer(chatObject.hashGraph.peerId);
+      const conversations = (chatObject.drp as ChatDRP).query_conversations();
       if (conversations.length === 0) {
         return {
           content: '',
-          message: 'No unresponded conversations',
+          message: 'No unresponded conversations.',
         }
       }
       let result = 'Unresponded conversations:\n\n';
       for (const conversation of conversations) {
         result += composeState(conversation, chatObject) + '\n\n';
-        console.log(
-          `Found question "${conversation[0].content}" with id "${conversation[0].messageId}" from peerId "${conversation[0].peerId}"\n`,
-        );
       }
       return result;
     },

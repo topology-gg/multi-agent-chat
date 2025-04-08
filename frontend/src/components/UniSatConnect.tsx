@@ -12,7 +12,6 @@ export function UniSatConnect() {
   const [address, setAddress] = useState<string>('');
 
   useEffect(() => {
-    // Kiểm tra xem UniSat đã được cài đặt chưa
     if (typeof window.unisat !== 'undefined') {
       window.unisat.on('accountsChanged', (accounts: string[]) => {
         if (accounts.length > 0) {
@@ -29,7 +28,7 @@ export function UniSatConnect() {
   const connectWallet = async () => {
     try {
       if (typeof window.unisat === 'undefined') {
-        alert('Vui lòng cài đặt UniSat Wallet!');
+        alert('Please install UniSat Wallet!');
         return;
       }
 
@@ -39,8 +38,8 @@ export function UniSatConnect() {
         setIsConnected(true);
       }
     } catch (error) {
-      console.error('Lỗi kết nối ví:', error);
-      alert('Có lỗi xảy ra khi kết nối ví!');
+      console.error('Error connecting wallet:', error);
+      alert('An error occurred while connecting the wallet!');
     }
   };
 
@@ -48,11 +47,11 @@ export function UniSatConnect() {
     <div className="flex items-center gap-4">
       {!isConnected ? (
         <Button onClick={connectWallet}>
-          Kết nối UniSat Wallet
+          Connect to UniSat Wallet
         </Button>
       ) : (
         <div className="flex items-center gap-2">
-          <span className="text-sm">Đã kết nối:</span>
+          <span className="text-sm">Connected: </span>
           <span className="text-sm font-mono">{address.slice(0, 6)}...{address.slice(-4)}</span>
         </div>
       )}

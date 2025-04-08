@@ -101,6 +101,7 @@ export const DRPAgentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       llm,
       tools,
       prompt: new SystemMessage("You are a helpful assistant that can answer questions and help with tasks.")
+      
     });
 
     setAgent(agent);
