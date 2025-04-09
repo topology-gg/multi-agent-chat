@@ -2,16 +2,19 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Box, Paper, TextField, IconButton } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import ChatMessage from './ChatMessage';
-import { answerQuestionPrompt, startConversationPrompt } from '../contexts/ai-chat/prompts';
+import { answerQuestionPrompt, initialPrompt, startConversationPrompt } from '../contexts/ai-chat/prompts';
 import { useDRP } from '../contexts/DRPAgentContext';
+import { useAccount } from 'wagmi';
 
 interface ChatMessage {
-  type: 'human' | 'agent';
+  type: 'human' | 'agent' | 'status';
   message: string;
+  status?: 'processing' | 'waiting' | 'completed' | 'error';
   agentConversation?: {
     localMessage: string;
     remoteResponse?: string;
     timestamp: number;
+    status?: 'processing' | 'waiting' | 'completed' | 'error';
   };
 }
 
@@ -22,6 +25,8 @@ const ChatWindow: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [onQuestion, setOnQuestion] = useState(false);
+  const { address } = useAccount();
+  const processingRef = useRef(false);
  
   const clearMessages = () => {
     setMessages([]);
@@ -48,23 +53,66 @@ const ChatWindow: React.FC = () => {
     }
 
     chatObject?.subscribe((_object, _origin, vertices) => {
-      if (vertices.some(v => v.peerId !== drpNode?.networkNode.peerId)) {
-        autonomousMessage().catch(error => {
-          console.error("Error in autonomous message handler:", error);
-        });
+      const v = vertices[vertices.length - 1];
+      if (!v) {
+        return;
+      }
+      // Only process if not already processing and message is from another peer
+      if (!processingRef.current && v.peerId !== drpNode?.networkNode.peerId) {
+        if (v.operation?.value[0].end) {
+          return;
+        }
+        processingRef.current = true;
+        setMessages(prev => [...prev, {
+          type: 'status',
+          message: 'Processing message from remote agent...',
+          status: 'processing',
+          agentConversation: {
+            localMessage: '',
+            remoteResponse: v.operation?.value[0].content,
+            timestamp: Date.now(),
+            status: 'processing'
+          }
+        }]);
+        autonomousMessage()
+          .catch(error => {
+            console.error("Error in autonomous message handler:", error);
+            setMessages(prev => [...prev, {
+              type: 'status',
+              message: 'An error occurred while processing the message from remote agent',
+              status: 'error'
+            }]);
+          })
+          .finally(() => {
+            processingRef.current = false;
+          });
       }
       if (onQuestion) {
-        vertices.forEach(v => {
-          if (v.peerId === drpNode?.networkNode.peerId) {
-            const localAgentMessages = v.operation?.value[0].content;
-            setMessages(prevMessages => {
+        if (v.peerId === drpNode?.networkNode.peerId) {
+          const localAgentMessages = v.operation?.value[0].content;
+          setMessages(prevMessages => {
               const newMessages = [...prevMessages];
               const lastMessage = newMessages[newMessages.length - 1];
               if (lastMessage) {
-                lastMessage.agentConversation = {
-                  localMessage: localAgentMessages,
-                  timestamp: Date.now(),
-                };
+                if (lastMessage.type === 'human') {
+                  lastMessage.agentConversation = {
+                    localMessage: localAgentMessages,
+                    timestamp: Date.now(),
+                    status: 'processing'
+                  }; 
+                }
+                else {
+                  newMessages.push({
+                    type: 'status',
+                    message: "Sent message to remote agent...",
+                    status: 'processing',
+                    agentConversation: {
+                      localMessage: localAgentMessages,
+                      timestamp: Date.now(),
+                      status: 'processing'
+                    }
+                  });
+                }
               }
               return newMessages;
             });
@@ -78,13 +126,13 @@ const ChatWindow: React.FC = () => {
                   localMessage: lastMessage.agentConversation?.localMessage || '',
                   remoteResponse: remoteAgentMessages,
                   timestamp: Date.now(),
+                  status: 'completed'
                 };
               }
               return newMessages;
             });
           }
-        });
-      }
+        }
     });
   }, [chatObject, drpNode, agent, onQuestion]);
 
@@ -101,19 +149,44 @@ const ChatWindow: React.FC = () => {
           content: answerQuestionPrompt,
         },
         {
+          role: 'system',
+          content: initialPrompt,
+        },
+        {
+          role: 'system',
+          content: `If you withdraw ETH HTLC, current secret key is ${localStorage.getItem('secretKey')}. Use it as secret key when withdraw the ETH HTLC. If you withdraw BTC HTLC, follow the instructions in the message.`,
+        },
+        {
+          role: 'system',
+          content: `don't call multiple actions at once. follow the correct workflow.`,
+        },
+        {
           role: 'user',
-          content: 'Use queryConversationDRPChatTool to get the question from other agents.',
+          content: 'Process all unresponded messages from one queryConversationDRPChatTool call. Dont recursively call tools',
         }
       ];      
       const output = await agent.invoke({ messages: input });
+      console.log('output', output);
       if (!output) {
-        throw new Error('No output from agent');
+        const errorMessage: ChatMessage = {
+          type: 'agent',
+          message: 'Error processing message. Please try again.',
+          status: 'error'
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      } else {
+        const answer = output.messages[output.messages.length - 1].content;
+        if (!answer) {
+          throw new Error('Invalid output format from agent');
+        }
+        const agentMessage: ChatMessage = {
+          type: 'agent',
+          message: answer.toString(),
+          status: 'completed'
+        };
+        setMessages(prev => [...prev, agentMessage]);
+        return answer as string;
       }
-      const answer = output.messages[output.messages.length - 1].content;
-      if (!answer) {
-        throw new Error('Invalid output format from agent');
-      }
-      return answer as string;
     } catch (error) {
       console.error("Error in autonomousMessage:", error);
       throw error;
@@ -128,12 +201,21 @@ const ChatWindow: React.FC = () => {
           content: startConversationPrompt,
         },
         {
+          role: 'system',
+          content: initialPrompt,
+        },
+        {
+          role: 'system',
+          content: `User ETH address is ${address}. Use it as receiver if needed.`,
+        },
+        {
           role: 'user',
           content: message,
         },
       ];
     try {
       const output = await agent?.invoke({ messages: input });
+      console.log(output);
       if (!output) {
         throw new Error('No output from agent');
       }
@@ -160,10 +242,12 @@ const ChatWindow: React.FC = () => {
     setMessages(prev => [...prev, newMessage]);
 
     const output = await handleMessage(userMessage);
+    console.log('output', output);
     if (!output) {
       const errorMessage: ChatMessage = {
         type: 'agent',
-        message: 'Error processing message. Please try again.'
+        message: 'Error processing message. Please try again.',
+        status: 'error'
       };
       setMessages(prev => [...prev, errorMessage]);
       setIsProcessing(false);
@@ -171,7 +255,8 @@ const ChatWindow: React.FC = () => {
     } else {
       const agentMessage: ChatMessage = {
         type: 'agent',
-        message: output.toString()
+        message: output.toString(),
+        status: 'completed'
       };
       setMessages(prev => [...prev, agentMessage]);
       setIsProcessing(false);

@@ -14,9 +14,6 @@ import type {
   LoggerOptions,
 } from '@ts-drp/types';
 import type { DRPNetworkNode } from '@ts-drp/network';
-import HashedTimelockERC20 from '../../../../contracts/src/artifacts/src/htlc.sol/HashedTimelockERC20.json'
-import Token from '../../../../contracts/src/artifacts/src/erc20.sol/MyToken.json'
-import { WriteContractMutateAsync } from 'wagmi/query';
 
 export class DRPManager {
   private readonly _node: DRPNode;
@@ -138,11 +135,12 @@ function composeState(conversation: Message[], chatObject: DRPObject): string {
     } = chatObject;
     const isRemote = message.peerId !== peerId;
     if (isRemote) {
-      text += `Remote agent ${message.peerId}:\n\nMessage id: ${message.messageId}, content: ${message.content}\n\n`;
+      text += `## Remote agent with peerId ${message.peerId}:\n\nMessage id: ${message.messageId}, content: ${message.content}\n\n`;
     } else {
-      text += `Local agent ${peerId}:\n\nMessage id: ${message.messageId}, content: ${message.content}\n\n`;
+      text += `## Local agent with peerId ${peerId}:\n\nMessage id: ${message.messageId}, content: ${message.content}\n\n`;
     }
   }
+  text += "**Note**: Only the last message is the actual notification to process. All previous messages are for context only. Don't take action from previous messages.";
   return text;
 }
 
@@ -266,146 +264,19 @@ export const queryConversationDRPChatTool = (
     description: 'A tool for querying a conversation from a specific agent',
     schema: {},
     func: async () => {
-      const conversations = (chatObject.drp as ChatDRP).query_conversationsNotFromPeer(chatObject.hashGraph.peerId);
+      console.log((chatObject.drp as ChatDRP).messages)
+      const conversations = (chatObject.drp as ChatDRP).query_conversations();
       if (conversations.length === 0) {
         return {
           content: '',
-          message: 'No unresponded conversations',
+          message: 'No unresponded conversations.',
         }
       }
       let result = 'Unresponded conversations:\n\n';
       for (const conversation of conversations) {
         result += composeState(conversation, chatObject) + '\n\n';
-        console.log(
-          `Found question "${conversation[0].content}" with id "${conversation[0].messageId}" from peerId "${conversation[0].peerId}"\n`,
-        );
       }
       return result;
     },
   });
 
-const newHTLCContractSchema = z.object({
-  receiver: z.string().describe('Address of the receiver'),
-  hashlock: z.string().describe('Hash lock'),
-  timelock: z.number().describe('Time lock'),
-  amount: z.number().describe('Amount of token'),
-  tokenContract: z.string().describe('Address of the token contract'),
-});
-
-export const newHTLCContractAction = (
-  writeContractAsync: WriteContractMutateAsync<any, any>,
-): StructuredToolInterface =>
-  new DynamicStructuredTool({
-  name: 'newHTLCContractAction',
-  description: 'A tool for deploying a contract',
-  schema: newHTLCContractSchema,
-  func: async (
-    {
-      receiver,
-      hashlock,
-      timelock,
-      amount,
-      tokenContract,
-    }: {
-      receiver: string;
-      hashlock: string;
-      timelock: number;
-      amount: number;
-      tokenContract: string
-    }
-  ) => {
-    localStorage.setItem('hashlock', hashlock);
-    console.log('Hash lock:', hashlock);
-    console.log(`Deploying contract with receiver: ${receiver}, hashLock: ${hashlock}, timelock: ${timelock}, amount: ${amount}, tokenContract: ${tokenContract}`);
-    try {
-        await writeContractAsync({
-          abi: Token.abi,
-          functionName: 'approve',
-          address: '0x3F64d909A1f96FBb770B43AF858C2f64E78084AF',
-          args: [
-            '0x7C819F14e1B52c4984F24cfB9E95dC98969a4e61',
-            amount,
-          ], 
-        });
-        const contractAddress = await writeContractAsync({
-          abi: HashedTimelockERC20.abi,
-          functionName: 'newContract',
-          address: '0x7C819F14e1B52c4984F24cfB9E95dC98969a4e61',
-          args: [
-            receiver,
-            hashlock,
-            timelock,
-            tokenContract,
-            amount,
-          ],
-        });
-        return {
-          contractAddress: contractAddress,
-          message: "Contract deployed",
-        };
-    } catch (error) {
-      console.error('Error deploying contract:', error);
-      throw error;
-    }
-  },
-});
-
-const withdrawHTLCContractSchema = z.object({
-  contractAddress: z.string().describe('Address of the contract'),
-  secretKey: z.string().describe('Secret key'),
-});
-
-export const withdrawHTLCContractAction = (
-  writeContractAsync: WriteContractMutateAsync<any, any>,
-): StructuredToolInterface =>
-  new DynamicStructuredTool({
-    name: 'withdrawHTLCContractAction',
-    description: 'A tool for withdrawing a contract',
-    schema: withdrawHTLCContractSchema,
-    func: async ({ contractAddress, secretKey }: { contractAddress: string; secretKey: string }) => {
-      try {
-        await writeContractAsync({
-          abi: HashedTimelockERC20.abi,
-          functionName: 'withdraw',
-          address: "0x7C819F14e1B52c4984F24cfB9E95dC98969a4e61",
-          args: [
-            contractAddress,
-            secretKey,
-          ],
-        });
-      } catch (error) {
-        console.error('Error withdrawing contract:', error);
-        throw error;
-      }
-    },
-  });
-
-const refundHTLCContractSchema = z.object({
-  contractAddress: z.string().describe('Address of the contract'),
-});
-
-export const refundHTLCContractAction = (
-  writeContractAsync: WriteContractMutateAsync<any, any>,
-): StructuredToolInterface =>
-  new DynamicStructuredTool({
-    name: 'refundHTLCContractAction',
-    description: 'A tool for cancelling a contract',
-    schema: refundHTLCContractSchema,
-    func: async ({ contractAddress }: { contractAddress: string }) => {
-      try {
-        await writeContractAsync({
-          abi: HashedTimelockERC20.abi,
-          functionName: 'refund',
-          address: "0x7C819F14e1B52c4984F24cfB9E95dC98969a4e61",
-          args: [
-            contractAddress,
-          ],
-        });
-      } catch (error) {
-        console.error('Error cancelling contract:', error);
-        throw error;
-      }
-    },
-  });
-
-// call newHTLCContractAction with receiver 0x1678B92f0fd866DD494dc90B234318Ef43Cf14e4, secret key aaa, timelock 1843152912, amount 123, tokenContract 0x3F64d909A1f96FBb770B43AF858C2f64E78084AF

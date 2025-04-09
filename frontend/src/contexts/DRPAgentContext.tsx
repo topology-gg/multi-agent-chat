@@ -1,13 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { DRPObject } from '@ts-drp/object';
 import { ChatOpenAI } from '@langchain/openai';
-import { answerDRPChatTool, askDRPChatTool, newHTLCContractAction, queryAnswerDRPChatTool, queryConversationDRPChatTool } from './ai-chat/tools';
+import { answerDRPChatTool, askDRPChatTool, queryAnswerDRPChatTool, queryConversationDRPChatTool } from './ai-chat/tools';
 import { DRPNode } from '@ts-drp/node';
 import { DRPNetworkNodeConfig } from '@ts-drp/types';
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { CompiledStateGraph } from '@langchain/langgraph/web';
 import { ChatDRP } from './ai-chat/chat.drp';
 import { useWriteContract } from 'wagmi'
+import { UnisatAPI, UnisatSigner } from '@scrypt-inc/scrypt-ts-btc';
+import { newBTC_HTLCAction, newETH_HTLCAction, withdrawETH_HTLCAction, withdrawBTC_HTLCAction } from './ai-chat/htlc-tools';
+import { SystemMessage } from '@langchain/core/messages';
 
 const networkConfig: DRPNetworkNodeConfig = {
     listen_addresses: ['/p2p-circuit', '/webrtc'],
@@ -33,6 +36,14 @@ export const useDRP = () => {
   return context;
 };
 
+declare global {
+	interface Window {
+		unisat: UnisatAPI;
+	}
+}
+
+const signer = new UnisatSigner(window.unisat as unknown as UnisatAPI);
+
 export const DRPAgentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [chatObject, setChatObject] = useState<DRPObject | null>(null);
   const [drpNode, setDrpNode] = useState<DRPNode | null>(null);
@@ -54,7 +65,7 @@ export const DRPAgentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setDrpNode(drpNode);
       }
       const object = await drpNode.createObject({
-        id: 'chat',
+        id: 'chat', 
         drp: new ChatDRP()
       });
       setChatObject(object);
@@ -75,7 +86,10 @@ export const DRPAgentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       answerDRPChatTool(chatObject),
       queryAnswerDRPChatTool(chatObject),
       queryConversationDRPChatTool(chatObject),
-      newHTLCContractAction(writeContractAsync)
+      newBTC_HTLCAction(signer, chatObject),
+      newETH_HTLCAction(writeContractAsync, chatObject),  
+      withdrawETH_HTLCAction(writeContractAsync, chatObject),
+      withdrawBTC_HTLCAction(signer, chatObject),
     ];
     const llm = new ChatOpenAI({
       model: import.meta.env.VITE_OPENAI_MODEL,
@@ -86,6 +100,8 @@ export const DRPAgentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const agent = createReactAgent({
       llm,
       tools,
+      prompt: new SystemMessage("You are a helpful assistant that can answer questions and help with tasks.")
+      
     });
 
     setAgent(agent);

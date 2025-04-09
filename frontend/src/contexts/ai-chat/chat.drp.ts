@@ -40,11 +40,12 @@ export class ChatDRP implements IDRP {
     return message.messageId;
   }
 
-  query_conversationsNotFromPeer(peerId: string): Message[][] {
+  query_conversations(): Message[][] {
     const conversations = [];
     const firstMessages = this.messages.filter(
-      (message) => message.peerId !== peerId && message.parentMessageId === undefined
+      (message) => message.parentMessageId === undefined
     );
+    console.log('firstMessages', firstMessages);
     for (const message of firstMessages) {
       const conversation = this.query_conversationWithFirstMessage(message);
       if (conversation.length === 0) continue;

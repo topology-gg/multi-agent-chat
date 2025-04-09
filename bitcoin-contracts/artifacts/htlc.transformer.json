@@ -1,0 +1,22 @@
+{
+  "success": false,
+  "errors": [
+    {
+      "message": "Calling function which returns `any` is not allowed",
+      "srcRange": {
+        "fileName": "/Users/winprn/Documents/topology/btc-eth-bridge/multi-agent-chat/src/contracts/btc.ts",
+        "start": {
+          "line": 42,
+          "character": 10
+        },
+        "end": {
+          "line": 42,
+          "character": 16
+        }
+      }
+    }
+  ],
+  "scryptfile": "btc.scrypt",
+  "sourceMapFile": "btc.scrypt.map",
+  "ctxMethods": []
+}

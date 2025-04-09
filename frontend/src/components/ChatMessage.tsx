@@ -12,12 +12,14 @@ export interface AgentConversation {
 
 // Define message structure
 interface ChatMessageData {
-  type: 'human' | 'agent';
+  type: 'human' | 'agent' | 'status';
   message: string;
+  status?: 'processing' | 'waiting' | 'completed' | 'error';
   agentConversation?: {
     localMessage: string;
     remoteResponse?: string;
     timestamp: number;
+    status?: 'processing' | 'waiting' | 'completed' | 'error';
   };
 }
 
@@ -27,45 +29,73 @@ interface ChatMessageProps {
 }
 
 const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
+  const getStatusColor = (status?: string) => {
+    switch (status) {
+      case 'processing':
+        return '#ffa726';
+      case 'waiting':
+        return '#42a5f5';
+      case 'completed':
+        return '#66bb6a';
+      case 'error':
+        return '#ef5350';
+      default:
+        return 'inherit';
+    }
+  };
+
   return (
     <Box sx={{ mb: 2 }}>
-      {/* Main message */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: message.type === 'human' ? 'flex-end' : 'flex-start',
-          gap: 1,
-        }}
-      >
-        {message.type === 'agent' && (
-          <Avatar sx={{ bgcolor: '#1976d2', boxShadow: 2 }}>
-            <SmartToyIcon />
-          </Avatar>
-        )}
-        <Paper
-          elevation={3}
+      {message.type === 'status' ? (
+        <Box
           sx={{
-            p: 2,
-            backgroundColor: message.type === 'human' ? '#e3f2fd' : '#f5f5f5',
-            maxWidth: '70%',
-            border: '2px solid',
-            borderColor: message.type === 'human' ? '#1976d2' : '#757575',
-            borderRadius: 2,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 1,
+            color: getStatusColor(message.status),
           }}
         >
-          <Typography>{message.message}</Typography>
-        </Paper>
-        {message.type === 'human' && (
-          <Avatar sx={{ bgcolor: '#4caf50', boxShadow: 2 }}>
-            <PersonIcon />
-          </Avatar>
-        )}
-      </Box>
+          <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+            {message.message}
+          </Typography>
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: message.type === 'human' ? 'flex-end' : 'flex-start',
+            gap: 1,
+          }}
+        >
+          {message.type === 'agent' && (
+            <Avatar sx={{ bgcolor: '#1976d2', boxShadow: 2 }}>
+              <SmartToyIcon />
+            </Avatar>
+          )}
+          <Paper
+            elevation={3}
+            sx={{
+              p: 2,
+              backgroundColor: message.type === 'human' ? '#e3f2fd' : '#f5f5f5',
+              maxWidth: '70%',
+              position: 'relative',
+              borderLeft: message.status ? `4px solid ${getStatusColor(message.status)}` : 'none',
+            }}
+          >
+            <Typography>{message.message}</Typography>
+          </Paper>
+          {message.type === 'human' && (
+            <Avatar sx={{ bgcolor: '#4caf50', boxShadow: 2 }}>
+              <PersonIcon />
+            </Avatar>
+          )}
+        </Box>
+      )}
 
       {/* Agent conversation sub-box */}
-      {message.type === 'human' && message.agentConversation && (
+      {message.agentConversation && (
         <Box
           sx={{
             ml: 4,
@@ -92,7 +122,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           </Typography>
           
           {/* Local Agent Message */}
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+          {message.agentConversation.localMessage && (  
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
             <Avatar sx={{ width: 28, height: 28, bgcolor: '#1976d2', boxShadow: 1 }}>
               <SmartToyIcon sx={{ fontSize: 18 }} />
             </Avatar>
@@ -115,6 +146,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
               </Typography>
             </Paper>
           </Box>
+          )}
 
           {/* Remote Agent Response */}
           {message.agentConversation.remoteResponse && (

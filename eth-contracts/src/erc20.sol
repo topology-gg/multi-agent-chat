@@ -45,5 +45,4 @@ contract MyToken is ERC20, Ownable {
      function withdraw() external onlyOwner {     
         payable(msg.sender).transfer(address(this).balance);
     }
-
 }
